@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>World Stock Exchange | Global Markets</title>
+<style>
+:root{--navy:#071525;--panel:#10243a;--panel2:#142b43;--gold:#d7b56d;--text:#edf3fa;--muted:#9aadc1;--line:#263d55;--green:#40c994;--red:#ff7777}
+*{box-sizing:border-box}body{margin:0;background:#081827;color:var(--text);font:15px/1.5 Inter,Arial,sans-serif}
+header{display:flex;align-items:center;justify-content:space-between;padding:18px 5%;border-bottom:1px solid var(--line);background:#071525;position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:12px;font-weight:800;letter-spacing:.08em}.mark{width:38px;height:38px;border:1px solid var(--gold);color:var(--gold);display:grid;place-items:center;font-weight:900;border-radius:10px}
+nav{display:flex;gap:22px}a{color:var(--muted);text-decoration:none}a:hover{color:var(--gold)}button{cursor:pointer;border:0;border-radius:8px;padding:11px 16px;font-weight:700}.gold{background:var(--gold);color:#101a26}.outline{background:transparent;color:var(--text);border:1px solid var(--line)}
+.wrap{max-width:1200px;margin:auto;padding:28px 22px}.hero{padding:48px 0 30px;display:grid;grid-template-columns:1.35fr .65fr;gap:25px;align-items:center}
+.eyebrow{color:var(--gold);font-size:12px;letter-spacing:.18em;font-weight:800}.hero h1{font-size:clamp(34px,5vw,60px);line-height:1.05;margin:12px 0}.hero p{color:var(--muted);max-width:650px}.hero-card,.panel,.stat,.market-card{background:linear-gradient(145deg,var(--panel),#0c1e31);border:1px solid var(--line);border-radius:15px}
+.hero-card{padding:24px}.hero-card h3{margin:0 0 12px}.big{font-size:34px;font-weight:800;color:var(--gold)}.muted{color:var(--muted)}.notice{background:#332b1c;border:1px solid #715b30;color:#f0d9a5;padding:12px 15px;border-radius:9px;font-size:13px;margin:12px 0 24px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:20px 0 30px}.stat{padding:17px}.stat small{color:var(--muted)}.stat strong{display:block;font-size:22px;margin-top:6px}
+.section-head{display:flex;justify-content:space-between;align-items:end;margin:32px 0 14px}.section-head h2{margin:0;font-size:24px}.tabs{display:flex;gap:8px;flex-wrap:wrap}.tab{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}.tab.active{background:var(--gold);color:#111b28}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.market-card{padding:17px}.market-card .type{font-size:11px;color:var(--gold);letter-spacing:.1em}.market-card h3{margin:7px 0}.price{font-size:23px;font-weight:800}.change.up{color:var(--green)}.change.down{color:var(--red)}
+.layout{display:grid;grid-template-columns:1.35fr .65fr;gap:16px;margin-top:22px}.panel{padding:20px}.panel h2,.panel h3{margin-top:0}.table{width:100%;border-collapse:collapse}.table th,.table td{text-align:left;padding:12px 8px;border-bottom:1px solid var(--line)}.table th{color:var(--muted);font-size:12px;font-weight:600}.trade-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line)}
+input,select{width:100%;padding:11px;border:1px solid var(--line);border-radius:8px;background:#081827;color:var(--text);margin:5px 0 12px}label{font-size:12px;color:var(--muted)}.actions{display:flex;gap:8px}.actions button{flex:1}.buy{background:#1d795d;color:white}.sell{background:#863d47;color:white}
+footer{border-top:1px solid var(--line);margin-top:40px;padding:25px 5%;color:var(--muted);font-size:12px}.pill{display:inline-block;border:1px solid var(--line);border-radius:30px;padding:5px 9px;color:var(--muted);font-size:11px}
+.issuer-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}.issuer-form{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}.issuer-form .full{grid-column:1/-1}.issuer-form button{margin:8px 0}.company-card{background:linear-gradient(145deg,var(--panel),#0c1e31);border:1px solid var(--line);border-radius:14px;padding:18px}.company-card h3{margin:5px 0}.company-meta{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.company-meta span{font-size:11px;color:var(--muted);border:1px solid var(--line);border-radius:30px;padding:4px 8px}.status{color:var(--gold);font-size:12px;font-weight:700}.company-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.company-card .price{color:var(--gold)}.file-note{font-size:11px;color:var(--muted);margin-top:-6px;margin-bottom:10px}.issuer-notice{font-size:12px;color:#f0d9a5;background:#332b1c;border:1px solid #715b30;padding:12px;border-radius:9px;margin:12px 0}.empty-state{padding:20px;border:1px dashed var(--line);border-radius:12px;color:var(--muted);text-align:center;grid-column:1/-1}
+@media(max-width:800px){nav{display:none}.hero,.layout{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}.grid{grid-template-columns:1fr 1fr}}
+@media(max-width:800px){.company-grid{grid-template-columns:1fr 1fr}.issuer-grid{grid-template-columns:1fr}.issuer-form{grid-template-columns:1fr}}
+@media(max-width:520px){.company-grid{grid-template-columns:1fr}.grid{grid-template-columns:1fr}.hero{padding-top:25px}.wrap{padding:20px 15px}.section-head{align-items:start;gap:12px;flex-direction:column}}
+</style>
+</head>
+<body>
+<header>
+ <div class="brand"><div class="mark">W</div><span>WORLD STOCK EXCHANGE</span></div>
+ <nav><a href="#markets">Markets</a><a href="#companies">Company listings</a><a href="#issuer">List your company</a><a href="#trade">Trade</a><a href="#payments">Payments</a><a href="#gold-diamond-fund">Gold & diamonds</a><a href="#security">Security</a></nav>
+ <button class="gold" onclick="alert('Account registration will be enabled after the exchange is licensed and operational.')">Open account</button>
+</header>
+<main class="wrap">
+ <section class="hero">
+  <div><div class="eyebrow">ONE PLATFORM. GLOBAL MARKETS.</div><h1>Trade the world's<br><span style="color:var(--gold)">opportunities.</span></h1>
+  <p>A proposed international marketplace for eligible company shares, currencies, energy markets, agricultural commodities and approved goods-trading opportunities.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:20px"><a class="gold" style="padding:12px 18px;border-radius:8px;color:#101a26;font-weight:800" href="#markets">Explore markets</a><a class="outline" style="padding:12px 18px;border-radius:8px" href="#security">Our security approach</a></div></div>
+  <div class="hero-card"><span class="pill">DEMO PLATFORM</span><h3 style="margin-top:16px">Your global market dashboard</h3><div class="big">24/7</div><div class="muted">Market access depends on the asset, exchange hours, jurisdiction and approved service providers.</div><hr style="border-color:var(--line);margin:20px 0"><div class="trade-row"><span class="muted">Markets planned</span><b>5 categories</b></div><div class="trade-row"><span class="muted">Payment methods planned</span><b>Visa · Mastercard</b></div><div class="trade-row"><span class="muted">Trading status</span><b style="color:var(--gold)">Not live</b></div></div>
+ </section>
+ <div class="notice"><b>Important:</b> This is a visual demonstration using illustrative sample data. It does not execute trades, hold customer funds, provide live prices or accept payments. Real-money trading requires appropriate regulatory approvals, licensed partners, banking/payment-provider approval, identity checks and operational safeguards.</div>
+ <section class="stats">
+  <div class="stat"><small>Demo account balance</small><strong id="balance">$10,000.00</strong></div>
+  <div class="stat"><small>Demo portfolio value</small><strong id="portfolio">$10,000.00</strong></div>
+  <div class="stat"><small>Illustrative markets</small><strong>12</strong></div>
+  <div class="stat"><small>Live trading</small><strong style="color:var(--gold)">Coming later</strong></div>
+ </section>
+ <section id="markets">
+  <div class="section-head"><div><div class="eyebrow">MARKETPLACE</div><h2>Explore asset classes</h2></div><div class="tabs"><button class="tab active" onclick="filter('All',this)">All</button><button class="tab" onclick="filter('Company stocks',this)">Stocks</button><button class="tab" onclick="filter('Software',this)">Software</button><button class="tab" onclick="filter('Currency',this)">Currency</button><button class="tab" onclick="filter('Energy',this)">Oil & gas</button><button class="tab" onclick="filter('Agriculture',this)">Agriculture</button><button class="tab" onclick="filter('Goods',this)">Goods</button></div></div>
+  <div class="grid" id="marketGrid"></div>
+ </section>
+ <section class="layout" id="trade">
+  <div class="panel"><div class="eyebrow">WATCHLIST</div><h2>Market overview</h2><table class="table"><thead><tr><th>Instrument</th><th>Category</th><th>Demo price</th><th>Day</th></tr></thead><tbody id="watchRows"></tbody></table></div>
+  <div class="panel"><div class="eyebrow">PRACTICE ONLY</div><h2>Demo trade ticket</h2><label for="asset">Select instrument</label><select id="asset"></select><label for="quantity">Quantity</label><input id="quantity" type="number" min="0.01" step="0.01" value="1"><div class="trade-row"><span class="muted">Estimated order value</span><b id="estimate">$150.00</b></div><div class="actions"><button class="buy" onclick="demoTrade('buy')">Demo buy</button><button class="sell" onclick="demoTrade('sell')">Demo sell</button></div><p class="muted" id="tradeMessage" style="font-size:12px">Demo trades change only the sample balance on this page. No money or assets are exchanged.</p></div>
+ </section>
+ <section id="companies" style="margin-top:34px">
+  <div class="section-head"><div><div class="eyebrow">ISSUER DIRECTORY</div><h2>Public company share listings</h2></div><a class="gold" style="padding:10px 14px;border-radius:8px;color:#101a26;font-weight:800" href="#issuer">Company upload portal</a></div>
+  <p class="muted">Browse company profiles and share offerings that have passed the exchange's review process. Sample entries are marked as demonstrations.</p>
+  <div class="company-grid" id="companyListings"><div class="empty-state">No approved company share offerings have been published yet. Companies can submit a listing application below.</div></div>
+ </section>
+ <section id="issuer" class="panel" style="margin-top:20px">
+  <div class="eyebrow">COMPANY ISSUER PORTAL</div><h2>Upload your company shares for review</h2>
+  <p class="muted">Companies can create a profile, submit share-offering details and provide supporting documents. Submissions remain private and pending until reviewed and approved by the exchange administrator.</p>
+  <div class="issuer-notice"><b>Important:</b> Submitting a form does not make shares public or authorize a securities offer. Before any offer is displayed or trading enabled, the issuer must satisfy the laws and regulator requirements in every relevant jurisdiction, including any required prospectus or exemption, issuer registration and exchange approval.</div>
+  <form id="issuerForm" class="issuer-form" onsubmit="submitIssuer(event)">
+   <div><label for="issuerName">Registered company name *</label><input id="issuerName" required maxlength="120" placeholder="Company legal name"></div>
+   <div><label for="issuerCountry">Country of incorporation *</label><input id="issuerCountry" required maxlength="80" placeholder="Country"></div>
+   <div><label for="issuerSymbol">Proposed ticker / share symbol *</label><input id="issuerSymbol" required maxlength="12" placeholder="e.g. ABC"></div>
+   <div><label for="issuerSector">Industry / sector *</label><select id="issuerSector" required><option value="">Select sector</option><option>Technology</option><option>Energy / Oil & Gas</option><option>Agriculture</option><option>Mining & Materials</option><option>Manufacturing</option><option>Financial Services</option><option>Healthcare</option><option>Other</option></select></div>
+   <div><label for="issuerWebsite">Company website</label><input id="issuerWebsite" type="url" placeholder="https://"></div>
+   <div><label for="issuerEmail">Authorized contact email *</label><input id="issuerEmail" type="email" required placeholder="name@company.com"></div>
+   <div><label for="shareClass">Share class *</label><input id="shareClass" required placeholder="Ordinary shares / Class A"></div>
+   <div><label for="shareCount">Number of shares offered *</label><input id="shareCount" type="number" min="1" step="1" required placeholder="100000"></div>
+   <div><label for="sharePrice">Proposed offer price per share *</label><input id="sharePrice" type="number" min="0.0001" step="0.0001" required placeholder="10.00"></div>
+   <div><label for="shareCurrency">Offer currency *</label><select id="shareCurrency" required><option>USD</option><option>EUR</option><option>GBP</option><option>CAD</option><option>GYD</option><option>XCD</option></select></div>
+   <div class="full"><label for="issuerDescription">Company profile and business description *</label><input id="issuerDescription" required maxlength="600" placeholder="Describe the company, its business and operations"></div>
+   <div><label for="prospectusFile">Prospectus / offering document</label><input id="prospectusFile" type="file" accept=".pdf,.doc,.docx"><div class="file-note">PDF or Word document. File selection is for this local demo only.</div></div>
+   <div><label for="financialFile">Financial statements / audit reports</label><input id="financialFile" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx"><div class="file-note">PDF, Word or Excel. File selection is for this local demo only.</div></div>
+   <div><label for="incorporationFile">Certificate of incorporation</label><input id="incorporationFile" type="file" accept=".pdf,.jpg,.jpeg,.png"><div class="file-note">PDF or image. File selection is for this local demo only.</div></div>
+   <div><label for="regulatoryFile">Regulatory registration / exemption evidence</label><input id="regulatoryFile" type="file" accept=".pdf,.doc,.docx"><div class="file-note">Attach relevant approval or exemption evidence.</div></div>
+   <div class="full"><label><input id="issuerDeclaration" type="checkbox" required style="width:auto;margin-right:8px">I confirm I am authorized to submit this company information and understand that the listing is subject to verification, legal review and exchange approval.</label></div>
+   <div class="full"><button class="gold" type="submit">Submit company for review</button> <span class="muted" id="issuerMessage" style="font-size:12px">Demo only: submissions are stored in this browser, not sent to the exchange.</span></div>
+  </form>
+ </section>
+ <section class="panel" id="issuerDashboard" style="margin-top:18px"><div class="eyebrow">ISSUER WORKSPACE</div><h2>Company submission status</h2><p class="muted">Submissions made in this browser appear here for demonstration. The live service will require secure company accounts, document storage and administrator review.</p><div id="issuerSubmissions" class="company-grid"><div class="empty-state">No company submissions in this browser yet.</div></div></section>
+ <section class="layout" id="payments">
+  <div class="panel"><div class="eyebrow">FUNDING & PAYOUTS</div><h2>Payment options planned</h2><p class="muted">Visa and Mastercard credit/debit card funding may be offered through an approved acquiring bank or payment service provider, subject to their underwriting and the rules in each supported country.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin:18px 0"><span class="pill">VISA</span><span class="pill">MASTERCARD</span><span class="pill">DEBIT CARDS</span><span class="pill">BANK TRANSFER</span></div><p class="muted" style="font-size:12px">Card processing is not connected in this prototype. Customer funds must not be collected until the regulated operating model, safeguarded fund arrangements and payment approvals are in place.</p></div>
+  <div class="panel" id="security"><div class="eyebrow">TRUST BY DESIGN</div><h2>End-to-end security</h2><ul class="muted" style="padding-left:18px"><li>Encrypted connections and protected data storage</li><li>Multi-factor authentication</li><li>Identity verification and anti-money-laundering checks</li><li>Withdrawal risk checks and account alerts</li><li>Independent security testing and incident response</li><li>Segregation and safeguarding of client assets where required</li></ul></div>
+ </section>
+ <section class="panel" style="margin-top:18px"><div class="eyebrow">BUSINESS MODEL</div><h2>How WSE may generate revenue</h2><div class="grid"><div><b>Trading fees</b><p class="muted">Transparent commissions on eligible completed trades.</p></div><div><b>Listing services</b><p class="muted">Fees for approved issuers and product listings.</p></div><div><b>Premium services</b><p class="muted">Optional market tools, research and institutional services.</p></div></div><p class="muted" style="font-size:12px">Fees must be disclosed clearly and comply with applicable law. Customer returns are not guaranteed; investments can lose value.</p></section>
+ <section class="panel" id="gold-diamond-fund" style="margin-top:18px">
+  <div class="eyebrow">SELLER PROFIT CONTRIBUTION · PROPOSED POLICY</div>
+  <h2>2% seller-profit fee in euros</h2>
+  <p class="muted">For approved company-share sales, the proposed exchange fee is 2% of the seller’s realised profit (not 2% of the full sale proceeds). The fee is calculated and settled in EUR and allocated to the World Stock Exchange Gold & Diamond Import Fund.</p>
+  <div class="grid">
+   <div class="company-card"><b>Fee destination</b><p class="muted">A dedicated World Stock Exchange business account and separately tracked fund ledger, subject to approved banking and safeguarding arrangements.</p></div>
+   <div class="company-card"><b>Gold programme</b><p class="muted">Planned purchase and lawful import of verified gold into Grenada, with documented origin, assay, valuation, customs declarations and insurance.</p></div>
+   <div class="company-card"><b>Diamond programme</b><p class="muted">Planned sourcing from Guyana and other South American suppliers, subject to verified provenance, lawful export/import permits and applicable conflict-free sourcing standards.</p></div>
+  </div>
+  <div class="issuer-grid">
+   <div><label for="sellerProfitEur">Example gross stock sale value (€)</label><input id="sellerProfitEur" type="number" min="0" step="0.01" value="1000"><div class="trade-row"><span class="muted">2% exchange commission per stock sale</span><b id="sellerFeeEur">€20.00</b></div><button class="gold" type="button" onclick="recordDemoFee()">Record demo fee</button><p id="feeMessage" class="muted" style="font-size:12px">Demo calculator only. Fee is 2% of each stock sale's gross value, not seller profit. No payment is taken or transferred.</p></div>
+   <div><b>Gold & Diamond Fund (demo ledger)</b><div class="big" id="fundTotal">€0.00</div><p class="muted">Illustrative accumulated fee allocation in this browser only.</p><p class="muted" style="font-size:12px">Live collection requires a licensed operating model, transparent seller agreement, bank account, transaction reconciliation, tax advice and applicable financial-services approvals. Physical gold and diamonds must not be purchased or imported until trade, customs, AML, sanctions and provenance checks are complete.</p></div>
+  </div>
+ </section>
+</main>
+<footer><b>WORLD STOCK EXCHANGE</b><p>Concept website • Demonstration only • Not a licensed exchange or broker • No live trading, investment advice, custody or payment processing.</p><p>Before launch: obtain jurisdiction-specific legal advice, regulatory permissions, approved market infrastructure, custody and banking arrangements, card acquiring, KYC/AML controls and independent cybersecurity review.</p>© 2026 World Stock Exchange concept</footer>
+<script>
+const assets=[
+{name:"Apple Inc. (AAPL)",category:"Company stocks",price:225.40,change:"+1.24%",up:true},
+{name:"Microsoft (MSFT)",category:"Company stocks",sector:"Software",price:510.20,change:"+0.82%",up:true},
+{name:"Oracle (ORCL)",category:"Company stocks",sector:"Software",price:198.40,change:"+0.65%",up:true},
+{name:"Adobe (ADBE)",category:"Company stocks",sector:"Software",price:342.80,change:"-0.42%",up:false},
+{name:"Salesforce (CRM)",category:"Company stocks",sector:"Software",price:286.50,change:"+0.73%",up:true},
+{name:"SAP SE (SAP)",category:"Company stocks",sector:"Software",price:248.60,change:"+0.38%",up:true},
+{name:"Intuit (INTU)",category:"Company stocks",sector:"Software",price:672.30,change:"-0.21%",up:false},
+{name:"ServiceNow (NOW)",category:"Company stocks",sector:"Software",price:914.20,change:"+0.91%",up:true},
+{name:"Global Industrial Co.",category:"Company stocks",price:84.75,change:"-0.31%",up:false},
+{name:"EUR / USD",category:"Currency",price:1.16,change:"+0.14%",up:true},
+{name:"GBP / USD",category:"Currency",price:1.32,change:"-0.08%",up:false},
+{name:"USD / CAD",category:"Currency",price:1.40,change:"+0.05%",up:true},
+{name:"Energy sector fund",category:"Energy",price:92.60,change:"+0.63%",up:true},
+{name:"Oil market reference",category:"Energy",price:68.20,change:"-0.44%",up:false},
+{name:"Natural gas reference",category:"Energy",price:3.45,change:"+0.21%",up:true},
+{name:"Wheat reference",category:"Agriculture",price:5.72,change:"+0.32%",up:true},
+{name:"Coffee reference",category:"Agriculture",price:3.18,change:"-0.16%",up:false},
+{name:"Sugar reference",category:"Agriculture",price:0.18,change:"+0.09%",up:true},
+{name:"Verified goods marketplace",category:"Goods",price:150,change:"Quote-based",up:true}
+];
+let balance=10000, holdings={};
+const money=n=>"$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+function render(list=assets){document.getElementById("marketGrid").innerHTML=list.map(a=>`<article class="market-card"><div class="type">${a.category.toUpperCase()}${a.sector?" · "+a.sector.toUpperCase():""}</div><h3>${a.name}</h3><div class="price">${a.category==="Currency"?a.price.toFixed(4):money(a.price)}</div><div class="change ${a.up?"up":"down"}">${a.change}</div><div style="margin-top:13px"><span class="pill">Illustrative data</span></div></article>`).join("");}
+function filter(cat,el){document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));el.classList.add("active");render(cat==="All"?assets:cat==="Software"?assets.filter(a=>a.sector==="Software"):assets.filter(a=>a.category===cat));}
+function init(){render();document.getElementById("watchRows").innerHTML=assets.slice(0,15).map(a=>`<tr><td>${a.name}</td><td>${a.category}</td><td>${a.price}</td><td class="${a.up?"change up":"change down"}">${a.change}</td></tr>`).join("");document.getElementById("asset").innerHTML=assets.filter(a=>a.category!=="Goods").map((a,i)=>`<option value="${assets.indexOf(a)}">${a.name}</option>`).join("");updateEstimate();}
+function updateEstimate(){let a=assets[+document.getElementById("asset").value||0],q=Math.max(0,+document.getElementById("quantity").value||0);document.getElementById("estimate").textContent=money(a.price*q);}
+function demoTrade(side){let a=assets[+document.getElementById("asset").value||0],q=Math.max(0,+document.getElementById("quantity").value||0),v=a.price*q;if(!q){return}if(side==="buy"){if(v>balance){document.getElementById("tradeMessage").textContent="Not enough demo cash for this sample order.";return}balance-=v;holdings[a.name]=(holdings[a.name]||0)+q;}else{if((holdings[a.name]||0)<q){document.getElementById("tradeMessage").textContent="You do not have enough demo units to sell.";return}balance+=v;holdings[a.name]-=q;}document.getElementById("balance").textContent=money(balance);document.getElementById("portfolio").textContent=money(balance+Object.entries(holdings).reduce((s,[n,q])=>s+(assets.find(x=>x.name===n)?.price||0)*q,0));document.getElementById("tradeMessage").textContent=`Demo ${side} recorded: ${q} unit(s) of ${a.name}. No real transaction occurred.`;}
+
+// Prototype-only calculator: 2% of each stock sale's gross value, recorded in a local demo allocation ledger. Not a payment system.
+const feeStoreKey="wseGoldDiamondFundDemoV1";
+function getDemoFund(){try{return Number(localStorage.getItem(feeStoreKey)||0)}catch{return 0}}
+function updateSellerFee(){const saleValue=Math.max(0,Number(document.getElementById("sellerProfitEur").value)||0);document.getElementById("sellerFeeEur").textContent="€"+(saleValue*0.02).toFixed(2);}
+function renderDemoFund(){document.getElementById("fundTotal").textContent="€"+getDemoFund().toFixed(2);}
+function recordDemoFee(){const saleValue=Math.max(0,Number(document.getElementById("sellerProfitEur").value)||0);if(!saleValue){document.getElementById("feeMessage").textContent="Enter a positive gross stock sale value to calculate the example fee.";return;}const fee=Math.round(saleValue*0.02*100)/100;try{localStorage.setItem(feeStoreKey,(getDemoFund()+fee).toFixed(2));}catch{}renderDemoFund();document.getElementById("feeMessage").textContent="Demo allocation recorded: €"+fee.toFixed(2)+" (2% of gross stock sale value €"+saleValue.toFixed(2)+"). No real payment or transfer occurred.";}
+document.getElementById("sellerProfitEur").addEventListener("input",updateSellerFee);renderDemoFund();updateSellerFee();
+
+const issuerStoreKey="wseIssuerApplicationsDemoV1";
+function safeText(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));}
+function getIssuerApps(){try{return JSON.parse(localStorage.getItem(issuerStoreKey)||"[]")}catch{return []}}
+function saveIssuerApps(a){localStorage.setItem(issuerStoreKey,JSON.stringify(a))}
+function submitIssuer(e){e.preventDefault();const g=id=>document.getElementById(id);const files=["prospectusFile","financialFile","incorporationFile","regulatoryFile"].map(id=>g(id).files[0]?.name||"").filter(Boolean);const app={id:"WSE-"+Date.now().toString(36).toUpperCase(),name:g("issuerName").value.trim(),country:g("issuerCountry").value.trim(),symbol:g("issuerSymbol").value.trim().toUpperCase(),sector:g("issuerSector").value,website:g("issuerWebsite").value.trim(),email:g("issuerEmail").value.trim(),shareClass:g("shareClass").value.trim(),shares:Number(g("shareCount").value),price:Number(g("sharePrice").value),currency:g("shareCurrency").value,description:g("issuerDescription").value.trim(),files,status:"Pending review",created:new Date().toLocaleString()};const apps=getIssuerApps();apps.unshift(app);saveIssuerApps(apps);g("issuerMessage").textContent="Application saved in this browser demo. It is not published and no documents were uploaded to a server.";g("issuerForm").reset();renderIssuerApps();}
+function renderIssuerApps(){const apps=getIssuerApps();const sub=document.getElementById("issuerSubmissions"),pub=document.getElementById("companyListings");if(!apps.length){sub.innerHTML='<div class="empty-state">No company submissions in this browser yet.</div>';pub.innerHTML='<div class="empty-state">No approved company share offerings have been published yet. Companies can submit a listing application below.</div>';return;}sub.innerHTML=apps.map(a=>`<article class="company-card"><div class="status">${safeText(a.status.toUpperCase())}</div><h3>${safeText(a.name)}</h3><div class="company-meta"><span>${safeText(a.symbol)}</span><span>${safeText(a.country)}</span><span>${safeText(a.sector)}</span></div><p class="muted">Application: ${safeText(a.id)}<br>Submitted: ${safeText(a.created)}<br>Documents selected: ${a.files.length? a.files.map(safeText).join(", "):"None"}</p><p class="muted">${safeText(a.description)}</p></article>`).join("");pub.innerHTML='<div class="empty-state">'+apps.length+' company application(s) received in this browser. Listings appear publicly only after administrator approval and applicable regulatory checks.</div>';}
+
+document.addEventListener("DOMContentLoaded",renderIssuerApps);
+document.getElementById("asset").addEventListener("change",updateEstimate);document.getElementById("quantity").addEventListener("input",updateEstimate);init();
+</script>
+</body></html>
