@@ -12,7 +12,13 @@ const STATUS = { 'Pending review': 'pending', Approved: 'approved', Rejected: 'r
 
 async function importLegacy() {
   const file = env.legacySqlitePath;
-  if (!file || !fs.existsSync(file)) return;
+  if (!file) return;
+  if (!fs.existsSync(file)) {
+    const dir = require('path').dirname(file);
+    const found = fs.existsSync(dir) ? fs.readdirSync(dir).join(', ') : 'folder missing';
+    console.warn(`Legacy SQLite import skipped: ${file} not found (contents of ${dir}: ${found}).`);
+    return;
+  }
   if (await one('SELECT 1 FROM app_events WHERE name=$1', [EVENT])) return;
 
   const Database = require('better-sqlite3');

@@ -122,7 +122,13 @@ async function seedOrders(investors, listingIds) {
         await one('SELECT 1 FROM company_orders WHERE investor_id=$1 AND application_id=$2', [investor.id, listingId])
       )
         continue;
-      const { order } = await listings.buy(investor, listingId, { quantity: 50 + ((i * 37 + k * 11) % 400) });
+      let order;
+      try {
+        ({ order } = await listings.buy(investor, listingId, { quantity: 50 + ((i * 37 + k * 11) % 400) }));
+      } catch (err) {
+        if (err.code === 'INSUFFICIENT_BALANCE' || err.code === 'SOLD_OUT') continue;
+        throw err;
+      }
       await query('UPDATE company_orders SET created_at=$2 WHERE id=$1', [order.id, daysAgo(18 - i - k)]);
       await query('UPDATE fund_ledger SET created_at=$2 WHERE order_id=$1', [order.id, daysAgo(18 - i - k)]);
     }

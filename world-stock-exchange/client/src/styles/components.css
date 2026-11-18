@@ -1209,3 +1209,17 @@ button.list-row:hover {
 .section-title h2 {
   flex: 0 0 auto;
 }
+
+.chip {
+  min-width: 44px;
+  justify-content: center;
+}
+
+@media (max-width: 767px) {
+  dd > a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    overflow-wrap: anywhere;
+  }
+}
