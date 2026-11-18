@@ -7,30 +7,41 @@ import MobileNav from './components/MobileNav';
 import RightColumn from './components/RightColumn';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
+import CallOverlay from './components/calls/CallOverlay';
+import CreatePostDialog from './components/feed/CreatePostDialog';
 import { CommentsProvider } from './context/CommentsContext';
 import { useUrlActions } from './hooks/useUrlActions';
-import { showsRightColumn } from './utils/views';
+import { isWideView, showsRightColumn } from './utils/views';
 
 export default function App() {
-  const { view } = useNavigation();
+  const { view, createOpen } = useNavigation();
   useUrlActions();
+  const right = showsRightColumn(view);
+  const layout = isWideView(view) ? ' layout-wide' : right ? ' has-right' : '';
 
   return (
     <CommentsProvider>
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       <div className="app-shell">
         <Sidebar />
-        <main className="main-area">
+        <div className="app-main main-area">
           <Topbar />
           <EmailNotice />
-          <section className="content-grid">
-            <FeedColumn />
-            <RightColumn visible={showsRightColumn(view)} />
-          </section>
-          <MobileNav />
-        </main>
+          <div className={`content-grid${layout}`}>
+            <main id="main" className="content-column feed-column" tabIndex={-1}>
+              <FeedColumn />
+            </main>
+            {right && <RightColumn view={view} />}
+          </div>
+        </div>
+        <MobileNav />
       </div>
       <AuthModal />
       <CommentsModal />
+      {createOpen && <CreatePostDialog />}
+      <CallOverlay />
     </CommentsProvider>
   );
 }

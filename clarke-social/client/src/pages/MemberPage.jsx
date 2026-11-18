@@ -1,133 +1,205 @@
-// Another member's profile: follow, message, call, block, and their posts.
+// A member's profile: cover, avatar, counts, follow / message / call / block, then their posts.
+import { useState } from 'react';
+import { Ellipsis, FileText, MessageCircle, Phone, UserCog, UserX, Pencil, Video } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useCalls } from '../context/CallContext';
 import { useNavigation } from '../context/NavigationContext';
 import { useToast } from '../context/ToastContext';
 import Avatar from '../components/Avatar';
 import PostCard from '../components/PostCard';
-import { AsyncView, EmptyState } from '../components/StateView';
+import { EmptyState, ErrorState, Loading } from '../components/StateView';
+import { useConfirm } from '../components/ui/ConfirmDialog';
+import Menu from '../components/ui/Menu';
 import { useAsync } from '../hooks/useAsync';
 import { usePostActions } from '../hooks/usePostActions';
 import { usePostList } from '../hooks/usePostList';
 import { listPosts } from '../services/postsService';
 import { blockMember, getMember, toggleFollow } from '../services/usersService';
 
-function MemberHeader({ member, onChange }) {
+function MemberActions({ member, onChange }) {
   const { user } = useAuth();
   const { openAuth, showView } = useNavigation();
   const { startCall } = useCalls();
+  const { confirm } = useConfirm();
   const toast = useToast();
-  const self = user?.id === member.id;
+  const [busy, setBusy] = useState(false);
+
+  if (user?.id === member.id)
+    return (
+      <div className="member-actions">
+        <button type="button" className="btn btn-secondary" onClick={() => showView('profile')}>
+          <Pencil size={20} aria-hidden="true" />
+          Edit profile
+        </button>
+        <button type="button" className="btn btn-secondary" onClick={() => showView('account')}>
+          <UserCog size={20} aria-hidden="true" />
+          Account
+        </button>
+      </div>
+    );
 
   const follow = async () => {
     if (!user) return openAuth();
+    const wanted = !member.isFollowing;
+    const counts = (following) => ({
+      isFollowing: following,
+      followers: Math.max(0, member.followers + (following === member.isFollowing ? 0 : following ? 1 : -1)),
+    });
+    onChange(counts(wanted));
+    setBusy(true);
     try {
       const { following } = await toggleFollow(member.id);
-      onChange({ isFollowing: following, followers: member.followers + (following ? 1 : -1) });
-    } catch (e) {
-      toast(e.message);
+      onChange(counts(following));
+    } catch (err) {
+      onChange(counts(member.isFollowing));
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
     }
   };
 
   const block = async () => {
-    if (!window.confirm(`Block ${member.displayName}? They will no longer be able to message or call you.`)) return;
+    const ok = await confirm({
+      title: `Block ${member.displayName}?`,
+      message: 'They will no longer be able to message or call you, or find you in dating.',
+      confirmLabel: 'Block',
+      danger: true,
+    });
+    if (!ok) return;
     try {
       const r = await blockMember(member.id);
-      toast(r.message);
+      toast(r.message, 'success');
       onChange({ canMessage: false });
-    } catch (e) {
-      toast(e.message);
+    } catch (err) {
+      toast(err.message, 'error');
     }
   };
 
-  const call = (type) => {
-    showView('calls');
-    startCall(type, member.id, member.displayName);
-  };
-
   return (
-    <section className="card-panel member-header">
-      <Avatar src={member.avatar} name={member.displayName} />
-      <div>
-        <h1 style={{ font: '800 22px Manrope', margin: 0 }}>{member.displayName}</h1>
-        <small className="dating-muted">@{member.username}</small>
-        {member.bio && <p className="post-body">{member.bio}</p>}
-        <div className="member-stats">
-          <span>
-            <b>{member.posts}</b> posts
-          </span>
-          <span>
-            <b>{member.followers}</b> followers
-          </span>
-          <span>
-            <b>{member.following}</b> following
-          </span>
-        </div>
-      </div>
-      {!self && (
-        <div className="member-actions">
-          <button className={`btn ${member.isFollowing ? '' : 'btn-primary'}`} onClick={follow}>
-            {member.isFollowing ? 'Following' : 'Follow'}
+    <div className="member-actions">
+      <button
+        type="button"
+        className={`btn ${member.isFollowing ? 'btn-secondary' : 'btn-primary'}`}
+        onClick={follow}
+        disabled={busy}
+      >
+        {member.isFollowing ? 'Following' : 'Follow'}
+      </button>
+      {member.canMessage && (
+        <>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => showView('messages', { userId: member.id })}
+          >
+            <MessageCircle size={20} aria-hidden="true" />
+            Message
           </button>
-          {member.canMessage && (
-            <>
-              <button className="btn" onClick={() => showView('messages', { userId: member.id })}>
-                Message
-              </button>
-              <button className="btn" onClick={() => call('audio')}>
-                Voice call
-              </button>
-              <button className="btn" onClick={() => call('video')}>
-                Video call
-              </button>
-            </>
-          )}
-          {user && (
-            <button className="btn dating-more" onClick={block}>
-              Block
-            </button>
-          )}
+          <button
+            type="button"
+            className="icon-btn member-icon-btn"
+            aria-label="Start voice call"
+            onClick={() => startCall('audio', member.id, member.displayName)}
+          >
+            <Phone size={20} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            className="icon-btn member-icon-btn"
+            aria-label="Start video call"
+            onClick={() => startCall('video', member.id, member.displayName)}
+          >
+            <Video size={20} aria-hidden="true" />
+          </button>
+        </>
+      )}
+      {user && (
+        <Menu
+          label="More options"
+          className="icon-btn member-icon-btn"
+          trigger={<Ellipsis size={20} aria-hidden="true" />}
+          items={[
+            {
+              label: `Block ${member.displayName}`,
+              icon: <UserX size={20} aria-hidden="true" />,
+              onSelect: block,
+              danger: true,
+            },
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+function MemberHeader({ member: m, onChange }) {
+  const { user } = useAuth();
+  const { navigate } = useNavigation();
+  const connections = (tab) => navigate('connections', { id: m.id, tab });
+  return (
+    <section className="card member-header" aria-labelledby="memberName">
+      <div className="member-cover" aria-hidden="true" />
+      <div className="member-header-body">
+        <div className="member-header-top">
+          <Avatar src={m.avatar} name={m.displayName} size="xxl" className="member-avatar" />
+          <MemberActions member={m} onChange={onChange} />
         </div>
-      )}
-      {!self && user && !member.canMessage && (
-        <p className="fine-print" style={{ width: '100%', margin: 0 }}>
-          You can message and call members who follow you back or who are a mutual dating match.
-        </p>
-      )}
+        <h1 id="memberName" className="member-name">
+          {m.displayName}
+        </h1>
+        <p className="member-handle">@{m.username}</p>
+        {m.bio && <p className="member-bio">{m.bio}</p>}
+        <div className="member-stats">
+          <span className="member-stat">
+            <b>{m.posts}</b> Posts
+          </span>
+          <button type="button" className="member-stat" onClick={() => connections('followers')}>
+            <b>{m.followers}</b> Followers
+          </button>
+          <button type="button" className="member-stat" onClick={() => connections('following')}>
+            <b>{m.following}</b> Following
+          </button>
+        </div>
+        {user && user.id !== m.id && !m.canMessage && (
+          <p className="fine-print">
+            You can message and call members who follow you back or who are a mutual dating match.
+          </p>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function MemberPosts({ id, name }) {
+  const posts = usePostList(() => listPosts({ userId: id }).then((d) => d.posts), [id]);
+  const actions = usePostActions(posts.update, posts.remove);
+  let content;
+  if (posts.loading && !posts.data) content = <Loading text="Loading posts" variant="feed" count={2} />;
+  else if (posts.error && !posts.data)
+    content = <ErrorState title="Couldn't load posts." message={posts.error} onRetry={posts.reload} />;
+  else if (!posts.data.length) content = <EmptyState icon={FileText} title="No posts yet." />;
+  else content = posts.data.map((p) => <PostCard key={p.id} post={p} actions={actions} />);
+  return (
+    <section className="section" aria-labelledby="memberPostsTitle">
+      <div className="section-title">
+        <h2 id="memberPostsTitle">Posts</h2>
+        <span className="text-sm text-muted truncate">From {name}</span>
+      </div>
+      <div className="feed-list">{content}</div>
     </section>
   );
 }
 
 export default function MemberPage({ params }) {
   const member = useAsync(() => getMember(params.id).then((d) => d.user), [params.id]);
-  const posts = usePostList(() => listPosts({ userId: params.id }).then((d) => d.posts), [params.id]);
-  const actions = usePostActions(posts.update, posts.remove);
+  if (member.loading && !member.data) return <Loading text="Loading profile" variant="profile" />;
+  if (member.error && !member.data)
+    return <ErrorState title="Couldn't load this profile right now." message={member.error} onRetry={member.reload} />;
+  const m = member.data;
   return (
-    <AsyncView state={member} loadingText="Loading profile…">
-      {(m) => (
-        <>
-          <MemberHeader member={m} onChange={(change) => member.setData((x) => ({ ...x, ...change }))} />
-          <div className="feed-heading">
-            <div>
-              <h2>Posts</h2>
-              <p>From {m.displayName}</p>
-            </div>
-          </div>
-          <AsyncView state={posts} loadingText="Loading posts…">
-            {(list) =>
-              list.length ? (
-                <div className="feed-list">
-                  {list.map((p) => (
-                    <PostCard key={p.id} post={p} actions={actions} />
-                  ))}
-                </div>
-              ) : (
-                <EmptyState title="No posts yet" />
-              )
-            }
-          </AsyncView>
-        </>
-      )}
-    </AsyncView>
+    <>
+      <MemberHeader member={m} onChange={(change) => member.setData((x) => ({ ...x, ...change }))} />
+      <MemberPosts id={params.id} name={m.displayName} />
+    </>
   );
 }

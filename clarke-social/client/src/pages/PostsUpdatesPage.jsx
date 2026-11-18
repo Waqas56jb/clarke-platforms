@@ -1,5 +1,6 @@
 // Posts & updates: short text posts (280 characters) with likes, replies, reposts and shares.
 import { useState } from 'react';
+import { ImagePlus, Newspaper } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
 import { useToast } from '../context/ToastContext';
@@ -10,31 +11,73 @@ import { usePostActions } from '../hooks/usePostActions';
 import { usePostList } from '../hooks/usePostList';
 import { createTextPost, listPosts } from '../services/postsService';
 
-export default function PostsUpdatesPage({ sort }) {
+const MAX = 280;
+
+function QuickComposer({ onPosted }) {
   const { user } = useAuth();
-  const { openAuth } = useNavigation();
+  const { openAuth, openCreate } = useNavigation();
   const toast = useToast();
   const [text, setText] = useState('');
   const [posting, setPosting] = useState(false);
-  const list = usePostList(() => listPosts({ view: 'updates', sort }).then((d) => d.posts), [sort, user?.id]);
-  const actions = usePostActions(list.update, list.remove);
 
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!user) return openAuth();
-    const v = text.trim();
-    if (!v) return;
+    const body = text.trim();
+    if (!body) return;
     setPosting(true);
     try {
-      const { post } = await createTextPost({ body: v });
-      list.setData((posts) => [post, ...(posts || [])]);
+      const { post } = await createTextPost({ body });
+      onPosted(post);
       setText('');
     } catch (err) {
-      toast(err.message);
+      toast(err.message, 'error');
     } finally {
       setPosting(false);
     }
   };
+
+  return (
+    <section className="card composer-card micro-composer" aria-label="Post an update">
+      <form id="microPostForm" onSubmit={onSubmit}>
+        <div className="composer-row">
+          <Avatar src={user?.avatar} name={user?.displayName || 'Clarke'} size="md" />
+          <div className="field grow">
+            <label className="field-label" htmlFor="microPostText">
+              What&apos;s happening?
+            </label>
+            <textarea
+              id="microPostText"
+              maxLength={MAX}
+              rows={2}
+              placeholder="Share a thought with the Clarke community"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+            />
+          </div>
+        </div>
+        <div className="micro-composer-foot">
+          <button type="button" className="btn btn-ghost btn-sm" onClick={openCreate}>
+            <ImagePlus size={20} aria-hidden="true" className="composer-icon-media" />
+            Photo/Video
+          </button>
+          <span id="microCount" className={`caption grow${text.length >= MAX ? ' micro-count-full' : ''}`}>
+            {text.length} / {MAX}
+          </span>
+          <button className="btn btn-primary btn-sm" type="submit" disabled={posting || !text.trim()}>
+            {posting && <span className="spinner" aria-hidden="true" />}
+            {posting ? 'Posting…' : 'Post'}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+export default function PostsUpdatesPage({ sort, version }) {
+  const { user } = useAuth();
+  const list = usePostList(() => listPosts({ view: 'updates', sort }).then((d) => d.posts), [sort, version, user?.id]);
+  const actions = usePostActions(list.update, list.remove);
 
   // A repost appears as a new update, so reload the list after reposting.
   const repost = async (p) => {
@@ -43,15 +86,20 @@ export default function PostsUpdatesPage({ sort }) {
   };
 
   let content;
-  if (list.loading && !list.data) content = <Loading text="Loading updates…" />;
-  else if (list.error && !list.data) content = <ErrorState message={list.error} onRetry={list.reload} />;
-  else if (!list.data.length) content = <EmptyState title="No updates yet">Be the first to post an update.</EmptyState>;
+  if (list.loading && !list.data) content = <Loading text="Loading updates" variant="feed" count={3} />;
+  else if (list.error && !list.data)
+    content = <ErrorState title="Couldn't load updates." message={list.error} onRetry={list.reload} />;
+  else if (!list.data.length)
+    content = (
+      <EmptyState icon={Newspaper} title="No updates yet.">
+        Be the first to post an update.
+      </EmptyState>
+    );
   else
-    content = list.data.map((p, i) => (
+    content = list.data.map((p) => (
       <MicroPost
         key={p.id}
         post={p}
-        index={i}
         actions={{ ...actions, repost }}
         onReplied={(id) => list.update(id, (x) => ({ comments: x.comments + 1 }))}
       />
@@ -59,37 +107,10 @@ export default function PostsUpdatesPage({ sort }) {
 
   return (
     <>
-      <section className="card-panel post-composer">
-        <div className="person-row">
-          <Avatar src={user?.avatar} name={user?.displayName || 'C'} color="avatar-blue" />
-          <div className="person-info">
-            <b>What&apos;s happening?</b>
-            <small>Share a thought with the Clarke community</small>
-          </div>
-        </div>
-        <form id="microPostForm" onSubmit={onSubmit}>
-          <textarea
-            id="microPostText"
-            maxLength={280}
-            placeholder="Write a post… (280 characters)"
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-          ></textarea>
-          <div className="post-composer-foot">
-            <span id="microCount">{text.length} / 280</span>
-            <button className="btn btn-primary" type="submit" disabled={posting}>
-              Post ↗
-            </button>
-          </div>
-        </form>
-      </section>
-      <div className="post-tagline">
-        <span>#ClarkeCommunity</span>
-        <span>#Trending</span>
-        <span>#YourVoice</span>
-        <span>Public conversation</span>
+      <QuickComposer onPosted={(post) => list.setData((posts) => [post, ...(posts || [])])} />
+      <div id="microFeed" className="feed-list">
+        {content}
       </div>
-      <div id="microFeed">{content}</div>
     </>
   );
 }

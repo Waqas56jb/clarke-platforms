@@ -1,14 +1,24 @@
-export default function FeedHeading({ title, sort, onSortChange }) {
+const SORTS = [
+  ['latest', 'Latest'],
+  ['popular', 'Popular'],
+];
+
+// Feed title with the Latest / Popular switch. `level` is the heading level (1 when it heads the page).
+export default function FeedHeading({ title, subtitle, sort, onSortChange, level = 2 }) {
+  const Heading = level === 1 ? 'h1' : 'h2';
   return (
-    <div className="feed-heading">
-      <div>
-        <h2 id="feedTitle">{title}</h2>
-        <p>Fresh updates from the Clarke community</p>
+    <div className={`feed-heading${level === 1 ? ' page-header' : ''}`}>
+      <div className="feed-heading-text">
+        <Heading id="feedTitle">{title}</Heading>
+        {subtitle && <p>{subtitle}</p>}
       </div>
-      <select id="feedSort" aria-label="Sort feed" value={sort} onChange={(e) => onSortChange(e.target.value)}>
-        <option value="latest">Latest</option>
-        <option value="popular">Popular</option>
-      </select>
+      <div className="segmented" role="group" aria-label="Sort posts">
+        {SORTS.map(([value, label]) => (
+          <button type="button" key={value} aria-pressed={sort === value} onClick={() => onSortChange(value)}>
+            {label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

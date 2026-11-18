@@ -1,133 +1,73 @@
 import { useRef } from 'react';
+import { Phone, Video } from 'lucide-react';
+import CallContacts from '../components/calls/CallContacts';
+import CallHistory from '../components/calls/CallHistory';
 import { useCalls } from '../context/CallContext';
-import CallStage from '../components/CallStage';
-import Avatar from '../components/Avatar';
-import { AsyncView } from '../components/StateView';
-import ViewHeading from '../components/ViewHeading';
-import { useAsync } from '../hooks/useAsync';
-import { callHistory } from '../services/callsService';
-import { listContacts } from '../services/messagesService';
-import { formatDateTime } from '../utils/format';
 
-const STATUS_TEXT = {
-  ringing: 'ringing',
-  answered: 'in progress',
-  declined: 'declined',
-  missed: 'missed',
-  ended: 'ended',
-  failed: 'failed',
-};
-
-function CallHistory({ refreshKey }) {
-  const state = useAsync(() => callHistory().then((d) => d.calls), [refreshKey]);
+function CallById({ onCall }) {
+  const targetRef = useRef(null);
+  const call = (type) => onCall(type, Number(targetRef.current.value));
   return (
-    <div id="callHistory">
-      <AsyncView state={state} loadingText="Loading…">
-        {(calls) =>
-          calls.length ? (
-            calls.map((c) => (
-              <div className="settings-row" key={c.call_id}>
-                <span>
-                  <b>
-                    {c.peer_name || c.peer_username} · {c.call_type}
-                  </b>
-                  <small>
-                    {c.direction} · {STATUS_TEXT[c.status]} · {formatDateTime(c.started_at)}
-                  </small>
-                </span>
-              </div>
-            ))
-          ) : (
-            <p>No calls yet.</p>
-          )
-        }
-      </AsyncView>
-    </div>
-  );
-}
-
-function QuickCall({ onCall }) {
-  const state = useAsync(() => listContacts().then((d) => d.contacts), []);
-  if (!state.data?.length) return null;
-  return (
-    <div style={{ marginTop: 14 }}>
-      <label style={{ display: 'block', fontWeight: 700, fontSize: 11, marginBottom: 4 }}>People you can call</label>
-      {state.data.slice(0, 8).map((u) => (
-        <div className="person-row" key={u.id}>
-          <Avatar src={u.avatar} name={u.displayName} />
-          <div className="person-info">
-            <b>{u.displayName}</b>
-            <small>
-              @{u.username} · ID {u.id}
-            </small>
-          </div>
-          <button className="follow-btn" onClick={() => onCall('audio', u)}>
-            Call
+    <details className="card card-pad call-by-id">
+      <summary>Call by member ID</summary>
+      <div className="stack call-by-id-body">
+        <label className="field">
+          <span className="field-label">Member account ID</span>
+          <input id="callTarget" ref={targetRef} type="number" min="1" inputMode="numeric" placeholder="e.g. 42" />
+        </label>
+        <div className="row-wrap">
+          <button type="button" className="btn btn-primary" id="startVideo" onClick={() => call('video')}>
+            <Video size={20} aria-hidden="true" />
+            Video call
           </button>
-          <button className="follow-btn" onClick={() => onCall('video', u)}>
-            Video
+          <button type="button" className="btn btn-secondary" id="startAudio" onClick={() => call('audio')}>
+            <Phone size={20} aria-hidden="true" />
+            Voice call
           </button>
         </div>
-      ))}
-    </div>
+      </div>
+    </details>
   );
 }
 
 export default function CallsPage() {
-  const { stage, localStream, remoteStream, startCall, endCall } = useCalls();
-  const targetRef = useRef(null);
+  const { stage, startCall } = useCalls();
 
   return (
     <>
-      <ViewHeading title="Voice & video calls" subtitle="Call your matches and members who follow you back." />
-      <div className="card-panel" style={{ padding: 18 }}>
-        <label style={{ display: 'block', fontWeight: 700, fontSize: 11, marginBottom: 8 }}>Member account ID</label>
-        <input
-          id="callTarget"
-          ref={targetRef}
-          type="number"
-          min="1"
-          placeholder="Enter member ID"
-          style={{ padding: 12, border: '1px solid var(--line)', borderRadius: 9, width: '100%', outline: 0 }}
-        />
-        <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
-          <button
-            className="btn btn-primary"
-            id="startVideo"
-            onClick={() => startCall('video', Number(targetRef.current.value))}
-          >
-            Start video call
-          </button>
-          <button
-            className="btn"
-            style={{ background: '#edf3ff', color: 'var(--blue)' }}
-            id="startAudio"
-            onClick={() => startCall('audio', Number(targetRef.current.value))}
-          >
-            Voice call
-          </button>
+      <header className="page-header">
+        <div>
+          <h1>Calls</h1>
+          <p>Voice and video calls with your matches and members who follow you back.</p>
         </div>
-        <QuickCall onCall={(type, u) => startCall(type, u.id, u.displayName)} />
-        <p style={{ fontSize: 10, color: 'var(--muted)', lineHeight: 1.6, marginTop: 14 }}>
-          Calls need camera/microphone permission. Audio and video go directly between you and the other member, and are
-          relayed through a TURN server when your networks require it.
-        </p>
+      </header>
+
+      <section className="card card-pad" aria-labelledby="callContactsTitle">
+        <div className="card-head">
+          <h2 className="card-title" id="callContactsTitle">
+            People you can call
+          </h2>
+        </div>
+        <CallContacts onCall={startCall} />
+      </section>
+
+      <section className="card card-pad section" aria-labelledby="callHistoryTitle">
+        <div className="card-head">
+          <h2 className="card-title" id="callHistoryTitle">
+            Recent calls
+          </h2>
+        </div>
+        <CallHistory refreshKey={stage ? 'live' : 'idle'} onCall={startCall} />
+      </section>
+
+      <div className="section">
+        <CallById onCall={startCall} />
       </div>
-      <div id="callArea" style={{ marginTop: 16 }}>
-        {stage && (
-          <CallStage
-            type={stage.type}
-            status={stage.peerName ? `${stage.status} · ${stage.peerName}` : stage.status}
-            localStream={localStream}
-            remoteStream={remoteStream}
-            onHangup={() => endCall(true)}
-          />
-        )}
-      </div>
-      <div className="card-panel" style={{ padding: 18, marginTop: 16 }}>
-        <h3>Recent calls</h3>
-        <CallHistory refreshKey={stage ? 'live' : 'idle'} />
-      </div>
+
+      <p className="fine-print">
+        Calls need microphone (and camera for video) permission. Audio and video go directly between you and the other
+        member, relayed through a TURN server when your networks require it.
+      </p>
     </>
   );
 }

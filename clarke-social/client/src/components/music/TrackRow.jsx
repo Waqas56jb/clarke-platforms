@@ -1,8 +1,10 @@
-const ART = ['☀', '✦', '♫', '◈'];
+import { AudioLines, Flag, Heart, ListPlus, MoreHorizontal, Music, Pause, Play, Trash2 } from 'lucide-react';
+import Menu from '../ui/Menu';
 
+// One catalogue row. `current` = loaded in the player, `playing` = current and not paused.
 export default function TrackRow({
   track: t,
-  index,
+  current,
   playing,
   playlists,
   mine,
@@ -12,44 +14,64 @@ export default function TrackRow({
   onDelete,
   onReport,
 }) {
+  const menuItems = [
+    ...playlists.map((p) => ({
+      label: `Add to “${p.name}”`,
+      icon: <ListPlus size={20} aria-hidden="true" />,
+      onSelect: () => onAdd(p.id),
+    })),
+    { separator: true, hidden: !playlists.length },
+    {
+      label: 'Delete track',
+      icon: <Trash2 size={20} aria-hidden="true" />,
+      onSelect: onDelete,
+      danger: true,
+      hidden: !mine,
+    },
+    { label: 'Report track', icon: <Flag size={20} aria-hidden="true" />, onSelect: onReport, hidden: mine },
+  ];
+
   return (
-    <div className={`music-track${playing ? ' playing' : ''}`}>
-      <div className="music-art">{ART[index % ART.length]}</div>
+    <li className={`music-track${current ? ' playing' : ''}`} aria-current={current ? 'true' : undefined}>
+      <button
+        type="button"
+        className="music-art music-play-btn"
+        aria-label={playing ? `Pause ${t.title}` : `Play ${t.title}`}
+        onClick={onPlay}
+      >
+        <span className="music-art-idle" aria-hidden="true">
+          {current ? <AudioLines size={20} /> : <Music size={20} />}
+        </span>
+        <span className="music-art-action" aria-hidden="true">
+          {playing ? <Pause size={20} fill="currentColor" /> : <Play size={20} fill="currentColor" />}
+        </span>
+      </button>
       <div className="music-track-info">
-        <b>{t.title}</b>
-        <small>
-          {t.artist} · {t.rightsCategory === 'original' ? 'Original' : 'Licensed'} · ♥ {t.likes}
-        </small>
+        <p className="music-track-title">{t.title}</p>
+        <p className="music-track-meta">
+          <span className="truncate">{t.artist}</span>
+          <span className="badge badge-neutral">{t.rightsCategory === 'original' ? 'Original' : 'Licensed'}</span>
+          <span className="music-likes">
+            <Heart size={12} aria-hidden="true" />
+            <span className="sr-only">Likes:</span> {t.likes}
+          </span>
+        </p>
       </div>
       <div className="track-actions">
-        <button onClick={onPlay}>{playing ? 'Playing' : 'Play'}</button>
-        <button onClick={onLike} title={t.liked ? 'Remove from Liked Songs' : 'Add to Liked Songs'}>
-          {t.liked ? '♥' : '♡'}
+        <button
+          type="button"
+          className={`icon-btn like-btn${t.liked ? ' liked' : ''}`}
+          aria-label={t.liked ? 'Unlike track' : 'Like track'}
+          onClick={onLike}
+        >
+          <Heart size={20} aria-hidden="true" fill={t.liked ? 'currentColor' : 'none'} />
         </button>
-        {playlists.length > 0 && (
-          <select
-            aria-label="Add to playlist"
-            value=""
-            onChange={(e) => e.target.value && onAdd(Number(e.target.value))}
-          >
-            <option value="">+ Playlist</option>
-            {playlists.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-        )}
-        {mine ? (
-          <button onClick={onDelete} title="Delete track">
-            ✕
-          </button>
-        ) : (
-          <button onClick={onReport} title="Report track">
-            ⚑
-          </button>
-        )}
+        <Menu
+          label={`More actions for ${t.title}`}
+          trigger={<MoreHorizontal size={20} aria-hidden="true" />}
+          items={menuItems}
+        />
       </div>
-    </div>
+    </li>
   );
 }

@@ -37,14 +37,14 @@ has `npm run lint` (ESLint) and `npm run format` (Prettier).
 
 | Website | Public site (Vercel) | API (Railway, proxied through the Vercel domain) |
 | --- | --- | --- |
-| Clarke Social | https://clarke-social-site.vercel.app | `/api`, `/uploads`, `/socket.io` → `clarke-social-api` (volume `/data`) |
+| Clarke Social | https://clarke-social-site.vercel.app | `/api` → `clarke-social-api` via `client/middleware.js`; uploads, media and Socket.IO go direct (Railway Postgres + volume `/data`) |
 | World Stock Exchange | https://world-stock-exchange-site.vercel.app | `/api` → `wse-api` (volume `/data`) |
 | Clarke Coin | https://clarke-coin-exchange.vercel.app | `/api/*` → `clarke-coin-api` + Railway Postgres |
 
-Each `client/vercel.json` holds the rewrites, so browsers only ever talk to the Vercel domain (cookies stay
-first-party). Vercel cannot proxy WebSockets, so the Clarke Social build sets `VITE_SOCKET_POLLING_ONLY=true` and
-Socket.IO uses HTTP long-polling. Railway variables: `NODE_ENV=production`, `TRUST_PROXY=2` (`TRUST_PROXY_HEADERS=2`
-for Clarke Coin), `APP_ORIGIN`/`CORS_ORIGINS` set to the Vercel domain, SQLite and uploads under `/data`, and
+World Stock Exchange and Clarke Coin keep their rewrites in `client/vercel.json`; Clarke Social's architecture is
+described in `clarke-social/server/README.md`. In every case browsers make their API calls to the Vercel domain, so cookies stay
+first-party. Railway variables: `NODE_ENV=production`, `TRUST_PROXY=2` (`TRUST_PROXY_HEADERS=2`
+for Clarke Coin), `APP_ORIGIN`/`CORS_ORIGINS` set to the Vercel domain, SQLite (World Stock Exchange) and uploads under `/data`, and
 `RUN_MIGRATIONS_ON_START=true` for Clarke Coin. Redeploy a backend with
 `railway up <site>/server --path-as-root --service <service>` and a frontend with `vercel deploy --prod` in its
 `client/` folder.

@@ -1,13 +1,19 @@
 // Clarke Music: member-uploaded catalogue, likes, playlists and a queue-based player.
-import { useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { Music } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
 import { useToast } from '../context/ToastContext';
+import MiniPlayer from '../components/music/MiniPlayer';
+import MusicLibrary from '../components/music/MusicLibrary';
 import MusicUploadForm from '../components/music/MusicUploadForm';
 import NowPlaying from '../components/music/NowPlaying';
 import TrackRow from '../components/music/TrackRow';
-import { ErrorState, Loading } from '../components/StateView';
+import { useMusicPlayer } from '../components/music/useMusicPlayer';
+import { EmptyState, ErrorState, Loading } from '../components/StateView';
+import { useConfirm, useReport } from '../components/ui/ConfirmDialog';
 import { useAsync } from '../hooks/useAsync';
+import { MOBILE_QUERY, useMediaQuery } from '../hooks/useMediaQuery';
 import {
   addToPlaylist,
   createPlaylist,
@@ -18,21 +24,16 @@ import {
   toggleTrackLike,
 } from '../services/musicService';
 
-const FEATURES = [
-  'Gapless playback and crossfade',
-  'Queue and play-next controls',
-  'Lyrics and synced captions (where licensed)',
-  'High-quality audio and device handoff',
-  'Artist pages, credits and release notes',
-  'Personalised mixes and smart recommendations',
-  'Downloads only where the licence permits',
-  'Family profiles, explicit-content controls and privacy settings',
-];
+const plural = (n) => `${n} ${n === 1 ? 'track' : 'tracks'}`;
 
 export default function MusicPage() {
   const { user } = useAuth();
   const { openAuth } = useNavigation();
   const toast = useToast();
+  const { confirm, prompt } = useConfirm();
+  const report = useReport();
+  const isMobile = useMediaQuery(MOBILE_QUERY);
+  const playerRef = useRef(null);
   const tracks = useAsync(() => listTracks().then((d) => d.tracks), [user?.id]);
   const playlists = useAsync(() => (user ? listPlaylists().then((d) => d.playlists) : Promise.resolve([])), [user?.id]);
   const [queue, setQueue] = useState({ ids: [], index: 0 });
@@ -40,10 +41,12 @@ export default function MusicPage() {
   const all = tracks.data || [];
   const byId = new Map(all.map((t) => [t.id, t]));
   const queueTracks = queue.ids.map((id) => byId.get(id)).filter(Boolean);
-  const current = queueTracks[queue.index];
+  const setIndex = useCallback((index) => setQueue((q) => ({ ...q, index })), []);
+  const player = useMusicPlayer(queueTracks, queue.index, setIndex);
+  const current = player.track;
 
-  const playList = (list, startId) =>
-    list.length &&
+  const playList = (list, startId) => {
+    if (!list.length) return;
     setQueue({
       ids: list.map((t) => t.id),
       index: Math.max(
@@ -51,6 +54,7 @@ export default function MusicPage() {
         list.findIndex((t) => t.id === startId)
       ),
     });
+  };
 
   const signedIn =
     (fn) =>
@@ -59,151 +63,147 @@ export default function MusicPage() {
       try {
         await fn(...args);
       } catch (e) {
-        toast(e.message);
+        toast(e.message, 'error');
       }
     };
 
+  const setLike = (id, liked) =>
+    tracks.setData((list) =>
+      list.map((x) => (x.id === id && x.liked !== liked ? { ...x, liked, likes: x.likes + (liked ? 1 : -1) } : x))
+    );
+
+  // Optimistic: flip at once, then settle on the server's answer (or roll back on error).
   const like = signedIn(async (t) => {
-    const { liked } = await toggleTrackLike(t.id);
-    tracks.setData((list) => list.map((x) => (x.id === t.id ? { ...x, liked, likes: x.likes + (liked ? 1 : -1) } : x)));
+    setLike(t.id, !t.liked);
+    try {
+      const { liked } = await toggleTrackLike(t.id);
+      setLike(t.id, liked);
+    } catch (e) {
+      setLike(t.id, t.liked);
+      throw e;
+    }
   });
   const add = signedIn(async (playlistId, t) => {
     await addToPlaylist(playlistId, t.id);
     playlists.reload();
-    toast('Added to your playlist.');
+    toast('Added to your playlist.', 'success');
   });
   const remove = signedIn(async (t) => {
-    if (!window.confirm(`Delete “${t.title}”?`)) return;
+    const ok = await confirm({
+      title: 'Delete this track?',
+      message: `“${t.title}” will be removed from Clarke Music for everyone.`,
+      confirmLabel: 'Delete track',
+      danger: true,
+    });
+    if (!ok) return;
     await deleteTrack(t.id);
     tracks.reload();
+    toast('Track deleted.', 'success');
   });
-  const report = signedIn(async (t) => {
-    const reason = window.prompt('Why are you reporting this track?');
+  const flag = signedIn(async (t) => {
+    const reason = await report('track');
     if (!reason) return;
     await reportTrack(t.id, reason);
-    toast('Thank you. Your report has been submitted for review.');
+    toast('Thank you. Your report has been submitted for review.', 'success');
   });
   const newPlaylist = signedIn(async () => {
-    const name = window.prompt('Name your playlist');
-    if (!name?.trim()) return;
-    await createPlaylist(name.trim());
+    const name = await prompt({
+      title: 'New playlist',
+      label: 'Playlist name',
+      placeholder: 'My playlist',
+      confirmLabel: 'Create playlist',
+      maxLength: 80,
+    });
+    if (!name) return;
+    await createPlaylist(name);
     playlists.reload();
-    toast(`Playlist “${name.trim()}” created.`);
+    toast(`Playlist “${name}” created.`, 'success');
   });
 
+  const onPlayTrack = (t) => (current?.id === t.id ? player.toggle() : playList(all, t.id));
+
   const liked = all.filter((t) => t.liked);
-  const library = [
-    { key: 'liked', name: 'Liked Songs', meta: `${liked.length} tracks`, list: liked },
-    ...(playlists.data || []).map((p, i) => ({
+  const collections = [
+    { key: 'liked', name: 'Liked Songs', meta: plural(liked.length), list: liked },
+    ...(playlists.data || []).map((p) => ({
       key: p.id,
       name: p.name,
-      meta: `Playlist · ${p.trackIds.length} tracks`,
+      meta: `Playlist · ${plural(p.trackIds.length)}`,
       list: p.trackIds.map((id) => byId.get(id)).filter(Boolean),
-      style: {
-        background: ['linear-gradient(135deg,#5d2d65,#d58ac0)', 'linear-gradient(135deg,#145b4b,#79c9a6)'][i % 2],
-      },
     })),
   ];
 
-  return (
-    <>
-      <section className="music-hero">
-        <div>
-          <span className="eyebrow">CLARKE MUSIC · LISTEN YOUR WAY</span>
-          <h2>A richer home for music.</h2>
-          <p>
-            Discover independent artists, build your library, create playlists and enjoy a clean, immersive listening
-            experience across your devices.
-          </p>
-          <span className="music-chip">ORIGINAL &amp; LICENSED MUSIC ONLY</span>
-        </div>
-        <div style={{ fontSize: 78, filter: 'drop-shadow(0 12px 20px #0008)' }}>♫</div>
-      </section>
-      <div className="music-layout">
-        <section>
-          <div className="music-panel">
-            <div className="music-heading">
-              <div>
-                <h3>Made for your day</h3>
-                <small>Newest tracks from Clarke artists</small>
-              </div>
-              <span className="music-chip">DISCOVER</span>
-            </div>
-            {tracks.loading && !tracks.data && <Loading text="Loading tracks…" />}
-            {tracks.error && <ErrorState message={tracks.error} onRetry={tracks.reload} />}
-            {tracks.data?.length === 0 && (
-              <p className="music-status">No tracks have been published yet. Upload the first one below.</p>
-            )}
-            {all.map((t, i) => (
-              <TrackRow
-                key={t.id}
-                track={t}
-                index={i}
-                playing={current?.id === t.id}
-                playlists={playlists.data || []}
-                mine={t.ownerId === user?.id}
-                onPlay={() => playList(all, t.id)}
-                onLike={() => like(t)}
-                onAdd={(pid) => add(pid, t)}
-                onDelete={() => remove(t)}
-                onReport={() => report(t)}
-              />
-            ))}
-          </div>
-          <MusicUploadForm onUploaded={tracks.reload} />
-          <div className="music-panel" style={{ marginTop: 16 }}>
-            <div className="music-heading">
-              <div>
-                <h3>Your library</h3>
-                <small>Liked songs and your playlists</small>
-              </div>
-              <button className="text-btn" id="createPlaylist" onClick={newPlaylist}>
-                ＋ New playlist
-              </button>
-            </div>
-            {!user && <p className="music-status">Sign in to build your library.</p>}
-            {playlists.error && <p className="inline-error">{playlists.error}</p>}
-            {user && (
-              <div className="music-collection">
-                {library.map((a) => (
-                  <button
-                    className="music-album"
-                    key={a.key}
-                    style={{ textAlign: 'left', cursor: 'pointer' }}
-                    onClick={() => (a.list.length ? playList(a.list) : toast('This collection is empty.'))}
-                  >
-                    <div className="music-album-art" style={a.style}>
-                      ♫
-                    </div>
-                    <b>{a.name}</b>
-                    <small>{a.meta}</small>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-        <aside>
-          <NowPlaying
-            queue={queueTracks}
-            index={queue.index}
-            onIndexChange={(index) => setQueue((q) => ({ ...q, index }))}
+  let catalogue;
+  if (tracks.loading && !tracks.data) catalogue = <Loading variant="track" count={5} text="Loading tracks" />;
+  else if (tracks.error && !tracks.data)
+    catalogue = <ErrorState plain title="Couldn't load music" message={tracks.error} onRetry={tracks.reload} />;
+  else if (!all.length)
+    catalogue = (
+      <EmptyState plain icon={Music} title="No music available right now.">
+        Tracks published by Clarke artists will appear here.
+      </EmptyState>
+    );
+  else
+    catalogue = (
+      <ul className="music-track-list">
+        {all.map((t) => (
+          <TrackRow
+            key={t.id}
+            track={t}
+            current={current?.id === t.id}
+            playing={current?.id === t.id && player.playing}
+            playlists={playlists.data || []}
+            mine={t.ownerId === user?.id}
+            onPlay={() => onPlayTrack(t)}
+            onLike={() => like(t)}
+            onAdd={(pid) => add(pid, t)}
+            onDelete={() => remove(t)}
+            onReport={() => flag(t)}
           />
-          <section className="music-panel" style={{ marginTop: 15 }}>
-            <div className="music-heading">
-              <h3>Listening features</h3>
+        ))}
+      </ul>
+    );
+
+  const showMini = isMobile && Boolean(current);
+  return (
+    <div className={`music-page${showMini ? ' has-mini' : ''}`}>
+      <header className="page-header">
+        <div>
+          <h1>Clarke Music</h1>
+          <p>Independent tracks from Clarke artists. Original and licensed music only.</p>
+        </div>
+      </header>
+      <div className="music-layout">
+        <section className="card card-pad-lg music-panel" aria-labelledby="musicTracksTitle">
+          <div className="card-head">
+            <div>
+              <h2 className="card-title" id="musicTracksTitle">
+                Latest tracks
+              </h2>
+              <p>Newest uploads from Clarke artists</p>
             </div>
-            <p className="music-status">
-              {FEATURES.map((f, i) => (
-                <span key={f}>
-                  • {f}
-                  {i < FEATURES.length - 1 && <br />}
-                </span>
-              ))}
-            </p>
-          </section>
+          </div>
+          {catalogue}
+        </section>
+        <aside className="music-side" ref={playerRef} aria-label="Player">
+          <NowPlaying player={player} />
         </aside>
+        <MusicLibrary
+          signedIn={Boolean(user)}
+          collections={collections}
+          error={playlists.error}
+          onCreate={newPlaylist}
+          onPlay={(list) => playList(list)}
+          onSignIn={() => openAuth()}
+        />
+        <MusicUploadForm onUploaded={tracks.reload} />
       </div>
-    </>
+      {showMini && (
+        <MiniPlayer
+          player={player}
+          onOpen={() => playerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+        />
+      )}
+    </div>
   );
 }

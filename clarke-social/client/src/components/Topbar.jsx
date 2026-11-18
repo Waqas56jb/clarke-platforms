@@ -1,40 +1,50 @@
+// Header. Phones: logo, search, notifications, avatar. Tablet/desktop: search field, notifications,
+// messages shortcut and the avatar menu.
+import { MessageCircle, Search } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
-import { mediaUrl } from '../services/http';
-import { initials } from '../utils/format';
 import GlobalSearch from './GlobalSearch';
 import NotificationsMenu from './NotificationsMenu';
-import ViewButton from './ViewButton';
+import AccountMenu from './nav/AccountMenu';
 
 export default function Topbar() {
-  const { user } = useAuth();
-  const { openAuth, showView } = useNavigation();
+  const { user, unreadMessages } = useAuth();
+  const { navigate, showView, view } = useNavigation();
   return (
     <header className="topbar">
-      <div className="mobile-brand">
-        <span className="brand-mark">C</span> clarke<span className="brand-dot">.</span>
+      <button type="button" className="brand mobile-brand" onClick={() => navigate('home')} aria-label="Clarke home">
+        <span className="brand-mark" aria-hidden="true">
+          C
+        </span>
+        <span>
+          clarke<span className="brand-dot">.</span>
+        </span>
+      </button>
+      <div className="topbar-search">
+        <GlobalSearch />
       </div>
-      <GlobalSearch />
-      <div className="top-actions">
+      <div className="topbar-actions">
+        <button
+          type="button"
+          className={`icon-btn topbar-search-button${view === 'discover' ? ' active' : ''}`}
+          aria-label="Search"
+          onClick={() => navigate('discover')}
+        >
+          <Search size={22} aria-hidden="true" />
+        </button>
         <NotificationsMenu />
-        <ViewButton className="icon-btn" title="Messages" view="messages">
-          ▤
-        </ViewButton>
-        <button
-          className="top-avatar"
-          id="topAvatar"
-          title={user ? 'My profile' : 'Sign in'}
-          onClick={() => (user ? showView('profile') : openAuth())}
-        >
-          {user?.avatar ? <img src={mediaUrl(user.avatar)} alt="" /> : initials(user?.displayName || 'C')}
-        </button>
-        <button
-          className={`btn btn-primary top-signin${user ? ' hidden' : ''}`}
-          id="openAuth"
-          onClick={() => openAuth()}
-        >
-          Sign in
-        </button>
+        {user && (
+          <button
+            type="button"
+            className="icon-btn topbar-messages"
+            aria-label={unreadMessages ? `Open messages, ${unreadMessages} unread` : 'Open messages'}
+            onClick={() => showView('messages')}
+          >
+            <MessageCircle size={22} aria-hidden="true" />
+            {unreadMessages > 0 && <span className="count-badge">{unreadMessages}</span>}
+          </button>
+        )}
+        <AccountMenu />
       </div>
     </header>
   );

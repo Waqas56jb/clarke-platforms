@@ -1,88 +1,89 @@
-import { useEffect, useRef, useState } from 'react';
-import { mediaUrl } from '../../services/http';
+import { Music, Pause, Play, SkipBack, SkipForward, Volume2, VolumeX } from 'lucide-react';
 import { formatSeconds } from '../../utils/format';
 
-// Plays `queue[index]`; previous/next move through the queue.
-export default function NowPlaying({ queue, index, onIndexChange }) {
-  const audioRef = useRef(null);
-  const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState({ current: 0, duration: 0 });
-  const track = queue[index];
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!track) return;
-    audio.src = mediaUrl(track.audioUrl);
-    audio.play().catch(() => {});
-  }, [track]);
-
-  const onPlay = () => {
-    const audio = audioRef.current;
-    if (!track) return;
-    if (audio.paused) audio.play().catch(() => {});
-    else audio.pause();
-  };
-
-  const move = (step) => {
-    if (!queue.length) return;
-    onIndexChange((index + step + queue.length) % queue.length);
-  };
-
-  const onSeek = (e) => {
-    const audio = audioRef.current;
-    if (audio.duration) audio.currentTime = (audio.duration * Number(e.target.value)) / 100;
-  };
-
+// Full player card. `player` comes from useMusicPlayer; this component owns the <audio> element.
+export default function NowPlaying({ player }) {
+  const { track, index, total, playing, time, volume } = player;
   const progress = time.duration ? (time.current / time.duration) * 100 : 0;
 
   return (
-    <section className="music-now">
-      <div className="music-now-art" id="musicNowArt">
-        ♫
+    <section className="card music-now" aria-labelledby="musicNowTitle">
+      <div className={`music-now-art${playing ? ' is-playing' : ''}`} id="musicNowArt" aria-hidden="true">
+        <Music size={48} />
       </div>
-      <span className="eyebrow">NOW PLAYING</span>
-      <h3 id="musicNowTitle">{track?.title || 'Choose a track'}</h3>
-      <p id="musicNowArtist">
-        {track ? `${track.artist} · uploaded by ${track.ownerName}` : 'Your Clarke listening room'}
-      </p>
-      <audio
-        id="clarkeAudio"
-        ref={audioRef}
-        controls
-        style={{ width: '100%', height: 35, filter: 'invert(1) hue-rotate(180deg)', marginTop: 8 }}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => move(1)}
-        onTimeUpdate={(e) => setTime({ current: e.target.currentTime || 0, duration: e.target.duration || 0 })}
-      ></audio>
-      <div className="music-controls">
-        <button id="musicPrev" title="Previous" onClick={() => move(-1)} disabled={!track}>
-          |◀
-        </button>
-        <button className="play-main" id="musicPlay" title="Play or pause" onClick={onPlay} disabled={!track}>
-          {playing ? 'Ⅱ' : '▶'}
-        </button>
-        <button id="musicNext" title="Next" onClick={() => move(1)} disabled={!track}>
-          ▶|
-        </button>
-      </div>
-      <div className="music-time">
-        <span id="musicElapsed">{formatSeconds(time.current)}</span>
-        <span id="musicDuration">{time.duration ? formatSeconds(time.duration) : '--:--'}</span>
+      <div className="music-now-info">
+        <p className="music-now-label">Now playing</p>
+        <h2 id="musicNowTitle">{track?.title || 'Choose a track'}</h2>
+        <p id="musicNowArtist">
+          {track ? `${track.artist} · uploaded by ${track.ownerName}` : 'Your Clarke listening room'}
+        </p>
       </div>
       <input
-        className="music-progress"
+        className="music-seek"
         id="musicSeek"
         type="range"
         min="0"
         max="100"
+        step="0.1"
         value={progress}
         aria-label="Seek track"
-        onChange={onSeek}
+        aria-valuetext={`${formatSeconds(time.current)} of ${time.duration ? formatSeconds(time.duration) : 'unknown'}`}
+        onChange={(e) => player.seek(Number(e.target.value))}
+        disabled={!track}
       />
-      <p className="music-status" style={{ color: '#c5d5f2' }}>
-        {track ? `${index + 1} of ${queue.length} in this queue.` : 'Pick a track or playlist to start listening.'}
+      <div className="music-time">
+        <span id="musicElapsed">{formatSeconds(time.current)}</span>
+        <span id="musicDuration">{time.duration ? formatSeconds(time.duration) : '--:--'}</span>
+      </div>
+      <div className="music-controls">
+        <button
+          type="button"
+          className="icon-btn"
+          id="musicPrev"
+          aria-label="Previous track"
+          onClick={() => player.move(-1)}
+          disabled={!track}
+        >
+          <SkipBack size={22} aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          className="music-play-main"
+          id="musicPlay"
+          aria-label={playing ? 'Pause' : 'Play'}
+          onClick={player.toggle}
+          disabled={!track}
+        >
+          {playing ? <Pause size={24} aria-hidden="true" /> : <Play size={24} aria-hidden="true" />}
+        </button>
+        <button
+          type="button"
+          className="icon-btn"
+          id="musicNext"
+          aria-label="Next track"
+          onClick={() => player.move(1)}
+          disabled={!track}
+        >
+          <SkipForward size={22} aria-hidden="true" />
+        </button>
+      </div>
+      <label className="music-volume">
+        {volume === 0 ? <VolumeX size={18} aria-hidden="true" /> : <Volume2 size={18} aria-hidden="true" />}
+        <span className="sr-only">Volume</span>
+        <input
+          id="musicVolume"
+          type="range"
+          min="0"
+          max="1"
+          step="0.05"
+          value={volume}
+          onChange={(e) => player.setVolume(Number(e.target.value))}
+        />
+      </label>
+      <p className="caption music-queue-status" aria-live="polite">
+        {track ? `${index + 1} of ${total} in this queue.` : 'Pick a track or playlist to start listening.'}
       </p>
+      <audio id="clarkeAudio" preload="metadata" {...player.audioProps} />
     </section>
   );
 }

@@ -1,103 +1,87 @@
+import { useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
-import PaymentCard from '../components/PaymentCard';
-import { ConfigNotice, PlanStatus } from '../components/PlanStatus';
-import { AsyncView } from '../components/StateView';
-import ViewHeading from '../components/ViewHeading';
-import { useAsync } from '../hooks/useAsync';
+import { useNavigation } from '../context/NavigationContext';
+import CheckoutDialog from '../components/payments/CheckoutDialog';
+import PaymentHistory from '../components/payments/PaymentHistory';
+import PaymentResultDialog from '../components/payments/PaymentResultDialog';
+import PlansSection from '../components/payments/PlansSection';
+import { PlanStatus } from '../components/PlanStatus';
 import { useCheckout } from '../hooks/useCheckout';
-import { paymentConfig, paymentHistory } from '../services/paymentsService';
-import { formatDateTime, money } from '../utils/format';
 
 const CARDS = [
   {
     plan: 'supporter_monthly',
-    eyebrow: 'COMMUNITY',
-    title: 'Clarke Supporter',
+    eyebrow: 'Community',
     text: 'Support the platform and help Clarke grow.',
     buttonLabel: 'Get 30 days',
   },
   {
     plan: 'creator_monthly',
-    eyebrow: 'FOR CREATORS',
-    title: 'Creator Plus',
+    eyebrow: 'For creators',
     text: 'Support creator tools and premium experiences.',
     buttonLabel: 'Get 30 days',
-    featured: true,
+    recommended: true,
   },
   {
     plan: 'one_time_support',
-    eyebrow: 'ONE-TIME',
-    title: 'Support Clarke',
+    eyebrow: 'One-time',
     text: 'Make a one-time contribution.',
     buttonLabel: 'Pay once',
   },
 ];
 
-const STATUS = { paid: 'Paid', pending: 'Pending', failed: 'Failed', cancelled: 'Cancelled' };
-
-function PaymentHistory() {
-  const state = useAsync(() => paymentHistory().then((d) => d.payments), []);
-  return (
-    <div id="paymentHistory">
-      <AsyncView state={state} loadingText="Loading…">
-        {(payments) =>
-          payments.length ? (
-            payments.map((p) => (
-              <div className="settings-row" key={p.reference}>
-                <span>
-                  <b>{p.name}</b>
-                  <small>
-                    {formatDateTime(p.createdAt)} · {STATUS[p.status]} · Ref {p.reference}
-                  </small>
-                </span>
-                <b>{money(p.amount, p.currency)}</b>
-              </div>
-            ))
-          ) : (
-            <p>No payments yet.</p>
-          )
-        }
-      </AsyncView>
-    </div>
-  );
-}
-
-export default function PremiumPage() {
+export default function PremiumPage({ params }) {
   const { user } = useAuth();
+  const { openAuth } = useNavigation();
   const checkout = useCheckout();
-  const config = useAsync(() => paymentConfig(), []);
-  const priceOf = (plan) => {
-    const p = config.data?.plans.find((x) => x.key === plan);
-    return p ? money(p.amount, p.currency) : '…';
+  const plansRef = useRef(null);
+  const [outcome, setOutcome] = useState(params?.payment || null);
+
+  const retry = () => {
+    setOutcome(null);
+    plansRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    plansRef.current?.focus({ preventScroll: true });
   };
+
   return (
-    <>
-      <ViewHeading
-        title="Clarke Payments"
-        subtitle="Optional memberships and creator support. Secure checkout is handled by WiPay."
-      />
+    <div className="plans-page">
+      <header className="page-header">
+        <div>
+          <h1>Supporter &amp; Creator Plans</h1>
+          <p>Optional memberships and creator support. Secure checkout is handled by WiPay.</p>
+        </div>
+      </header>
       <PlanStatus />
-      <ConfigNotice config={config.data} />
-      <div className="payment-grid">
-        {CARDS.map(({ plan, ...card }) => (
-          <PaymentCard
-            key={plan}
-            {...card}
-            price={priceOf(plan)}
-            period={plan === 'one_time_support' ? 'once' : '/ 30 days'}
-            onPay={() => checkout(plan)}
-          />
-        ))}
-      </div>
-      <div className="card-panel" style={{ padding: 18, marginTop: 16 }}>
-        <h3>Payment history</h3>
-        {user ? <PaymentHistory /> : <p>Sign in to view payment history.</p>}
+      <section className="section" aria-labelledby="plansTitle" ref={plansRef} tabIndex={-1}>
+        <div className="section-title">
+          <h2 id="plansTitle">Choose a plan</h2>
+        </div>
+        <PlansSection cards={CARDS} onChoose={checkout.choose} />
         <p className="fine-print">
-          Payments open on WiPay&apos;s secure checkout page and are charged in US dollars. Clarke never sees or stores
+          Prices are in US dollars. Payments open on WiPay&apos;s secure checkout page and Clarke never sees or stores
           your card number. WiPay does not offer automatic renewals, so each plan purchase gives 30 days of access and
           you can renew at any time.
         </p>
-      </div>
-    </>
+      </section>
+      <section className="section" aria-labelledby="historyTitle">
+        <div className="section-title">
+          <h2 id="historyTitle">Payment history</h2>
+        </div>
+        <div className="card card-pad">
+          {user ? (
+            <PaymentHistory />
+          ) : (
+            <div className="row-wrap">
+              <p className="grow">Sign in to view your payment history.</p>
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => openAuth()}>
+                Sign in
+              </button>
+            </div>
+          )}
+        </div>
+      </section>
+      {checkout.item && <CheckoutDialog item={checkout.item} onClose={checkout.close} />}
+      {outcome && <PaymentResultDialog outcome={outcome} onClose={() => setOutcome(null)} onRetry={retry} />}
+    </div>
   );
 }

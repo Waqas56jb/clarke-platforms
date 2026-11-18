@@ -1,4 +1,4 @@
-import { api, post } from './http';
+import { api, post, upload } from './http';
 
 export const fetchMe = () => api('/api/me');
 export const fetchAuthStatus = () => api('/api/auth/csrf');
@@ -12,3 +12,5 @@ export const resetPassword = (token, password) => post('/api/auth/reset-password
 export const updateMe = (payload) => api('/api/me', { method: 'PATCH', body: payload });
 export const deleteAccount = (password) => api('/api/me', { method: 'DELETE', body: { password } });
 export const socketToken = () => api('/api/auth/socket-token');
+// Profile photo upload with progress/cancel options ({ onProgress, signal }).
+export const uploadProfilePhoto = (file, options) => upload('avatar', {}, { avatar: file }, options);

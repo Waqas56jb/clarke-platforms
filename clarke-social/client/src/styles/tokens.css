@@ -1,0 +1,227 @@
+/* Clarke design tokens. Every colour, size and timing in the app comes from here.
+   Themes: light (default), dark via [data-theme='dark'] on <html> (set before first paint in index.html). */
+:root {
+  /* Brand scale */
+  --blue-50: #eff6ff;
+  --blue-100: #dbeafe;
+  --blue-200: #bfdbfe;
+  --blue-300: #93c5fd;
+  --blue-400: #60a5fa;
+  --blue-500: #3b82f6;
+  --blue-600: #2563eb;
+  --blue-700: #1d4ed8;
+  --blue-800: #1e40af;
+  --blue-900: #1e3a8a;
+
+  /* Semantic colours — light */
+  --color-background: #f4f7fc;
+  --color-background-secondary: #f1f5f9;
+  --color-surface: #ffffff;
+  --color-surface-elevated: #ffffff;
+  --color-surface-hover: #f1f5f9;
+  --color-surface-pressed: #e2e8f0;
+  --color-input: #f1f5f9;
+  --color-selected: #eaf1ff;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-input-border: #7b899e; /* 3:1 boundary contrast for form fields */
+  --color-text: #1e293b;
+  --color-text-strong: #0f172a;
+  --color-text-body: #334155;
+  --color-text-secondary: #475569;
+  --color-text-muted: #536276;
+  --color-placeholder: #5b6b80;
+  --color-primary: #1d4ed8;
+  --color-primary-hover: #1e40af;
+  --color-primary-pressed: #1e3a8a;
+  --color-primary-soft: #dbeafe;
+  --color-on-primary: #ffffff;
+  --color-link: #1d4ed8;
+  --color-focus: #2563eb;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+  --color-warning: #854d0e;
+  --color-warning-soft: #fef3c7;
+  --color-error: #b91c1c;
+  --color-error-soft: #fee2e2;
+  --color-info: #1d4ed8;
+  --color-info-soft: #dbeafe;
+  --color-like: #e11d48;
+  --color-disabled-bg: #cbd5e1;
+  --color-disabled-text: #475569;
+  --color-bubble-in: #f1f5f9;
+  --color-bubble-in-text: #1e293b;
+  --color-bubble-out: #1d4ed8;
+  --color-bubble-out-text: #ffffff;
+  --color-backdrop: rgba(15, 23, 42, 0.48);
+  --color-media-bg: #0b1220;
+  --color-on-media: #f8fafc;
+  --color-on-media-muted: #cbd5e1;
+  --color-story-unseen: linear-gradient(135deg, #2563eb, #7c3aed);
+  --color-story-seen: #cbd5e1;
+  --color-story-own: #f97316;
+  --color-skeleton: #e2e8f0;
+  --color-skeleton-shine: #f1f5f9;
+
+  /* Typography */
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  --text-display: 700 36px/44px var(--font-sans);
+  --text-h1: 700 30px/38px var(--font-sans);
+  --text-h2: 700 24px/32px var(--font-sans);
+  --text-h3: 600 20px/28px var(--font-sans);
+  --text-h4: 600 18px/26px var(--font-sans);
+  --text-body-lg: 400 16px/24px var(--font-sans);
+  --text-body: 400 14px/22px var(--font-sans);
+  --text-body-sm: 400 13px/20px var(--font-sans);
+  --text-caption: 400 12px/18px var(--font-sans);
+  --text-button: 600 14px/20px var(--font-sans);
+
+  /* Spacing (4px scale) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --page-gutter: 16px;
+
+  /* Radius */
+  --radius-badge: 6px;
+  --radius-input: 10px;
+  --radius-button: 10px;
+  --radius-card-sm: 12px;
+  --radius-card: 16px;
+  --radius-card-lg: 20px;
+  --radius-sheet: 24px;
+  --radius-full: 999px;
+
+  /* Elevation */
+  --shadow-0: none;
+  --shadow-1: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --shadow-2: 0 4px 12px rgba(15, 23, 42, 0.08);
+  --shadow-3: 0 8px 24px rgba(15, 23, 42, 0.12);
+  --shadow-4: 0 16px 40px rgba(15, 23, 42, 0.16);
+
+  /* Layers */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-header: 20;
+  --z-sidebar: 30;
+  --z-dropdown: 40;
+  --z-sheet: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+  --z-call: 80;
+  --z-critical: 90;
+
+  /* Motion */
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0, 0, 0.2, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+  --dur-press: 100ms;
+  --dur-hover: 150ms;
+  --dur-dropdown: 160ms;
+  --dur-toast: 180ms;
+  --dur-page: 180ms;
+  --dur-modal: 200ms;
+  --dur-like: 250ms;
+  --dur-sheet: 260ms;
+  --dur-match: 500ms;
+
+  /* Layout */
+  --sidebar-width: 260px;
+  --rail-width: 76px;
+  --right-panel-width: 320px;
+  --content-max: 760px;
+  --header-height: 64px;
+  --bottom-nav-height: 64px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+
+  color-scheme: light;
+}
+
+/* Mobile type scale and gutters */
+@media (max-width: 767px) {
+  :root {
+    --text-display: 700 30px/38px var(--font-sans);
+    --text-h1: 700 26px/34px var(--font-sans);
+    --text-h2: 700 22px/30px var(--font-sans);
+    --text-h3: 600 18px/26px var(--font-sans);
+    --text-h4: 600 16px/24px var(--font-sans);
+    --text-body: 400 14px/21px var(--font-sans);
+    --text-body-sm: 400 13px/19px var(--font-sans);
+    --header-height: 56px;
+  }
+}
+
+@media (min-width: 768px) {
+  :root {
+    --page-gutter: 24px;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-gutter: 32px;
+  }
+}
+
+/* Dark theme: a full palette, not an inversion. Depth comes from surface contrast, not heavier shadows. */
+:root[data-theme='dark'] {
+  --color-background: #0b1220;
+  --color-background-secondary: #111c2e;
+  --color-surface: #172338;
+  --color-surface-elevated: #1d2b42;
+  --color-surface-hover: #1d2b42;
+  --color-surface-pressed: #243553;
+  --color-input: #1d2b42;
+  --color-selected: #1e3a5f;
+  --color-border: #334155;
+  --color-border-strong: #475569;
+  --color-input-border: #6b7c94;
+  --color-text: #f8fafc;
+  --color-text-strong: #f8fafc;
+  --color-text-body: #cbd5e1;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #a8b4c7;
+  --color-placeholder: #a8b4c7;
+  --color-primary: #60a5fa;
+  --color-primary-hover: #93c5fd;
+  --color-primary-pressed: #bfdbfe;
+  --color-primary-soft: #1e3a5f;
+  --color-on-primary: #0b1220;
+  --color-link: #93c5fd;
+  --color-focus: #93c5fd;
+  --color-success: #4ade80;
+  --color-success-soft: #14321f;
+  --color-warning: #fbbf24;
+  --color-warning-soft: #3a2c0b;
+  --color-error: #f87171;
+  --color-error-soft: #3b1418;
+  --color-info: #93c5fd;
+  --color-info-soft: #1e3a5f;
+  --color-like: #fb7185;
+  --color-disabled-bg: #334155;
+  --color-disabled-text: #a8b4c7;
+  --color-bubble-in: #1d2b42;
+  --color-bubble-in-text: #f8fafc;
+  --color-bubble-out: #2563eb;
+  --color-bubble-out-text: #ffffff;
+  --color-backdrop: rgba(0, 0, 0, 0.65);
+  --color-media-bg: #000000;
+  --color-story-seen: #475569;
+  --color-skeleton: #1d2b42;
+  --color-skeleton-shine: #243553;
+  --shadow-1: none;
+  --shadow-2: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-3: 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-4: 0 16px 40px rgba(0, 0, 0, 0.5);
+
+  color-scheme: dark;
+}

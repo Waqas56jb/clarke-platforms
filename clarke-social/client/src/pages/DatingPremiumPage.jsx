@@ -1,51 +1,50 @@
-import PaymentCard from '../components/PaymentCard';
-import ViewHeading from '../components/ViewHeading';
-import { useAsync } from '../hooks/useAsync';
+import { ArrowLeft } from 'lucide-react';
+import { useNavigation } from '../context/NavigationContext';
+import CheckoutDialog from '../components/payments/CheckoutDialog';
+import PlansSection from '../components/payments/PlansSection';
+import { PlanStatus } from '../components/PlanStatus';
 import { useCheckout } from '../hooks/useCheckout';
-import { paymentConfig } from '../services/paymentsService';
-import { money } from '../utils/format';
-import { ConfigNotice, PlanStatus } from '../components/PlanStatus';
+
+const CARDS = [
+  {
+    plan: 'dating_plus_monthly',
+    eyebrow: 'More discovery',
+    text: 'Up to 35 profiles per discovery page and a Dating Plus membership badge.',
+    buttonLabel: 'Get Dating Plus',
+  },
+  {
+    plan: 'dating_vip_monthly',
+    eyebrow: 'Top tier',
+    text: 'Up to 60 profiles per discovery page and a VIP membership badge.',
+    buttonLabel: 'Get Dating VIP',
+    recommended: true,
+  },
+];
 
 export default function DatingPremiumPage() {
+  const { navigate } = useNavigation();
   const checkout = useCheckout();
-  const config = useAsync(() => paymentConfig(), []);
-  const priceOf = (plan) => {
-    const p = config.data?.plans.find((x) => x.key === plan);
-    return p ? money(p.amount, p.currency) : '…';
-  };
   return (
-    <>
-      <ViewHeading
-        title="Clarke Dating memberships"
-        subtitle="Optional upgrades for people who want more ways to discover connections."
-      />
+    <div className="plans-page">
+      <button type="button" className="btn-link back-link" onClick={() => navigate('dating')}>
+        <ArrowLeft size={16} aria-hidden="true" />
+        Back to Dating
+      </button>
+      <header className="page-header">
+        <div>
+          <h1>Clarke Dating memberships</h1>
+          <p>Optional upgrades for people who want more ways to discover connections.</p>
+        </div>
+      </header>
       <PlanStatus />
-      <ConfigNotice config={config.data} />
-      <div className="payment-grid">
-        <PaymentCard
-          eyebrow="MORE DISCOVERY"
-          title="Dating Plus"
-          price={priceOf('dating_plus_monthly')}
-          period="/ 30 days"
-          text="Up to 35 profiles per discovery page and a Dating Plus membership badge."
-          buttonLabel="Get Dating Plus"
-          onPay={() => checkout('dating_plus_monthly')}
-        />
-        <PaymentCard
-          eyebrow="TOP TIER"
-          title="Dating VIP"
-          price={priceOf('dating_vip_monthly')}
-          period="/ 30 days"
-          text="Up to 60 profiles per discovery page and a VIP membership badge."
-          buttonLabel="Get Dating VIP"
-          featured
-          onPay={() => checkout('dating_vip_monthly')}
-        />
-      </div>
-      <p className="fine-print">
-        Prices are in US dollars. Checkout is handled by WiPay; your membership starts as soon as WiPay confirms the
-        payment and lasts 30 days.
-      </p>
-    </>
+      <section className="section" aria-label="Dating plans">
+        <PlansSection cards={CARDS} onChoose={checkout.choose} columns={2} />
+        <p className="fine-print">
+          Prices are in US dollars. Checkout is handled by WiPay; your membership starts as soon as WiPay confirms the
+          payment and lasts 30 days.
+        </p>
+      </section>
+      {checkout.item && <CheckoutDialog item={checkout.item} onClose={checkout.close} />}
+    </div>
   );
 }

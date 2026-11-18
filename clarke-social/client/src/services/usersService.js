@@ -8,3 +8,5 @@ export const blockMember = (id) => post(`/api/users/${id}/block`);
 export const uploadAvatar = (file) => upload('avatar', {}, { avatar: file });
 export const searchAll = (q) => api(`/api/search?q=${encodeURIComponent(q)}`);
 export const trending = () => api('/api/trending');
+export const listFollowers = (id) => api(`/api/users/${id}/followers`);
+export const listFollowing = (id) => api(`/api/users/${id}/following`);

@@ -1,13 +1,19 @@
-// Loading, error (with retry) and empty states shared by every page.
-export function Loading({ text = 'Loading…' }) {
-  return <div className="loading-card">{text}</div>;
+// Loading (skeleton), error (with retry) and empty states shared by every screen.
+import { AlertCircle, Inbox } from 'lucide-react';
+import Skeleton from './ui/Skeleton';
+
+export function Loading({ text = 'Loading', variant = 'card', count = 1, grid }) {
+  return <Skeleton variant={variant} count={count} label={text} grid={grid} />;
 }
 
-export function ErrorState({ message, onRetry }) {
+export function ErrorState({ title = 'Something went wrong', message, onRetry, plain }) {
   return (
-    <div className="empty-state" role="alert">
-      <b>Something went wrong</b>
-      <p>{message}</p>
+    <div className={`state-panel error${plain ? ' plain' : ''}`} role="alert">
+      <div className="state-icon">
+        <AlertCircle size={32} aria-hidden="true" />
+      </div>
+      <h3>{title}</h3>
+      {message && <p>{message}</p>}
       {onRetry && (
         <button className="btn btn-primary" onClick={onRetry}>
           Try again
@@ -17,19 +23,22 @@ export function ErrorState({ message, onRetry }) {
   );
 }
 
-export function EmptyState({ icon = '✧', title, children }) {
+export function EmptyState({ icon: Icon = Inbox, title, children, action, plain }) {
   return (
-    <div className="empty-state">
-      <div style={{ fontSize: 28, color: '#155eef' }}>{icon}</div>
-      <b>{title}</b>
+    <div className={`state-panel${plain ? ' plain' : ''}`}>
+      <div className="state-icon">
+        <Icon size={32} aria-hidden="true" />
+      </div>
+      <h3>{title}</h3>
       {children && <p>{children}</p>}
+      {action}
     </div>
   );
 }
 
-// Renders loading / error states for a useAsync result, otherwise the children.
-export function AsyncView({ state, loadingText, children }) {
-  if (state.loading && !state.data) return <Loading text={loadingText} />;
-  if (state.error && !state.data) return <ErrorState message={state.error} onRetry={state.reload} />;
+// Renders skeleton / error states for a useAsync result, otherwise the children.
+export function AsyncView({ state, loadingText, skeleton = 'card', count = 1, errorTitle, children }) {
+  if (state.loading && !state.data) return <Loading text={loadingText} variant={skeleton} count={count} />;
+  if (state.error && !state.data) return <ErrorState title={errorTitle} message={state.error} onRetry={state.reload} />;
   return children(state.data);
 }

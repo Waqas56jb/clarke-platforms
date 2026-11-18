@@ -1,7 +1,7 @@
 import { api, post, upload } from './http';
 
 export const listTracks = () => api('/api/music/tracks');
-export const uploadTrack = (fields, audio, proof) => upload('track', fields, { audio, proof });
+export const uploadTrack = (fields, audio, proof, options) => upload('track', fields, { audio, proof }, options);
 export const deleteTrack = (id) => api(`/api/music/tracks/${id}`, { method: 'DELETE' });
 export const toggleTrackLike = (id) => post(`/api/music/tracks/${id}/like`);
 export const reportTrack = (id, reason) => post(`/api/music/tracks/${id}/report`, { reason });

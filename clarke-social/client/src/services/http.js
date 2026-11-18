@@ -50,22 +50,35 @@ export async function api(url, { method = 'GET', body } = {}) {
 export const post = (url, body) => api(url, { method: 'POST', body });
 
 // Sends a multipart upload straight to the API host with a short-lived upload token.
-export async function upload(kind, fields, files) {
+// options.onProgress(percent) reports progress; options.signal (AbortSignal) cancels the upload.
+export async function upload(kind, fields, files, { onProgress, signal } = {}) {
   const { token } = await api('/api/uploads/token');
   const form = new FormData();
   Object.entries(fields).forEach(([k, v]) => form.append(k, v));
   Object.entries(files).forEach(([k, file]) => file && form.append(k, file));
-  let response;
-  try {
-    response = await fetch(`${BACKEND_ORIGIN}/api/uploads/${kind}`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
-      body: form,
-    });
-  } catch {
-    throw new ApiError('The upload could not be sent. Check your connection and try again.', 0);
-  }
-  return parse(response);
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const abort = () => xhr.abort();
+    xhr.open('POST', `${BACKEND_ORIGIN}/api/uploads/${kind}`);
+    xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(Math.round((e.loaded / e.total) * 100));
+    xhr.onload = () => {
+      signal?.removeEventListener('abort', abort);
+      let data = {};
+      try {
+        data = JSON.parse(xhr.responseText);
+      } catch {
+        // Non-JSON error bodies fall through to the generic message.
+      }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(data);
+      else reject(new ApiError(data.error || 'Upload failed. Please try again.', xhr.status, data.code));
+    };
+    xhr.onerror = () => reject(new ApiError('The upload could not be sent. Check your connection and try again.', 0));
+    xhr.onabort = () => reject(new ApiError('Upload cancelled.', 0, 'UPLOAD_CANCELLED'));
+    if (signal?.aborted) return reject(new ApiError('Upload cancelled.', 0, 'UPLOAD_CANCELLED'));
+    signal?.addEventListener('abort', abort);
+    xhr.send(form);
+  });
 }
 
 // Absolute URL for uploaded media and signed file links, which are served by the API host.

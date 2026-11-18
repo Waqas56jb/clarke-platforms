@@ -1,6 +1,8 @@
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
+import AccountPage from '../pages/AccountPage';
 import CallsPage from '../pages/CallsPage';
+import ConnectionsPage from '../pages/ConnectionsPage';
 import DatingPage from '../pages/DatingPage';
 import DatingPremiumPage from '../pages/DatingPremiumPage';
 import DiscoverPage from '../pages/DiscoverPage';
@@ -22,26 +24,24 @@ const PAGES = {
   calls: CallsPage,
   profile: ProfilePage,
   settings: SettingsPage,
+  account: AccountPage,
   premium: PremiumPage,
   member: MemberPage,
+  connections: ConnectionsPage,
   post: PostPage,
 };
 
 export default function FeedColumn() {
   const { user, ready } = useAuth();
   const { view, params } = useNavigation();
-  if (!ready)
-    return (
-      <div className="feed-column">
-        <Loading />
-      </div>
-    );
+  if (!ready) return <Loading variant="feed" count={2} text="Loading Clarke" />;
   // Private pages fall back to home once the member signs out.
   const current = AUTH_REQUIRED_VIEWS.includes(view) && !user ? 'home' : view;
   const Page = PAGES[current];
+  const key = `${current}:${JSON.stringify(params)}`;
   return (
-    <div className="feed-column">
-      {Page ? <Page key={JSON.stringify(params)} params={params} /> : <FeedPage view={current} />}
+    <div className="page-enter" key={key}>
+      {Page ? <Page params={params} /> : <FeedPage view={current} />}
     </div>
   );
 }

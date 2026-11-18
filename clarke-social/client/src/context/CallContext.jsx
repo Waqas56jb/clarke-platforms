@@ -3,7 +3,6 @@
 import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
-import { useNavigation } from './NavigationContext';
 import { useSocket, useSocketEvent } from './SocketContext';
 import { iceConfig } from '../services/callsService';
 
@@ -43,7 +42,6 @@ async function addIce(peer, candidate) {
 export function CallProvider({ children }) {
   const { user } = useAuth();
   const toast = useToast();
-  const { navigate } = useNavigation();
   const socket = useSocket();
   const peerRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -53,6 +51,8 @@ export function CallProvider({ children }) {
   const [stage, setStage] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
+  // The ringing call waiting for the member to accept or decline: the 'call:incoming' payload.
+  const [incoming, setIncoming] = useState(null);
 
   const endCall = useCallback(
     (notify = true) => {
@@ -86,8 +86,9 @@ export function CallProvider({ children }) {
       };
       peer.ontrack = (e) => setRemoteStream(e.streams[0]);
       peer.onconnectionstatechange = () => {
-        if (peer.connectionState === 'connected') setStage((s) => s && { ...s, status: 'Connected' });
-        if (peer.connectionState === 'failed') toast('Call connection ended or lost.');
+        if (peer.connectionState === 'connected')
+          setStage((s) => s && { ...s, status: 'Connected', connectedAt: s.connectedAt || Date.now() });
+        if (peer.connectionState === 'failed') toast('Call connection ended or lost.', 'error');
       };
       return peer;
     },
@@ -109,30 +110,53 @@ export function CallProvider({ children }) {
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
         socket.emit('call:answer', { to: data.from, answer, callId: data.callId });
-        navigate('calls');
-        setStage({ type: data.callType, status: 'Connecting…', peerName: data.displayName || data.username });
+        setStage({
+          callId: data.callId,
+          type: data.callType,
+          status: 'Connecting…',
+          peerId: data.from,
+          peerName: data.displayName || data.username,
+          peerUsername: data.username,
+          peerAvatar: data.avatar,
+        });
       } catch (e) {
         socket.emit('call:decline', { to: data.from, callId: data.callId });
         endCall(false);
-        toast(e.message || 'Could not answer call.');
+        toast(e.message || 'Could not answer call.', 'error');
       }
     },
-    [createPeer, flushPendingIce, socket, navigate, toast, endCall]
+    [createPeer, flushPendingIce, socket, toast, endCall]
   );
 
+  const acceptIncoming = useCallback(() => {
+    if (!incoming) return;
+    setIncoming(null);
+    acceptCall(incoming);
+  }, [incoming, acceptCall]);
+
+  const declineIncoming = useCallback(() => {
+    if (!incoming) return;
+    socket?.emit('call:decline', { to: incoming.from, callId: incoming.callId });
+    setIncoming(null);
+  }, [incoming, socket]);
+
   useSocketEvent('call:error', (d) => {
-    toast(d.message || 'Call could not be started.');
+    toast(d.message || 'Call could not be started.', 'error');
     endCall(false);
   });
-  useSocketEvent('call:incoming', async (data) => {
+  useSocketEvent('call:incoming', (data) => {
+    // Busy: already in a call or another call is ringing.
+    if (callRef.current.callId || incoming) {
+      socket.emit('call:decline', { to: data.from, callId: data.callId });
+      return;
+    }
     pendingIceRef.current = [];
-    const name = data.displayName || data.username;
-    if (window.confirm(`${name} is calling you (${data.callType}). Accept?`)) await acceptCall(data);
-    else socket.emit('call:decline', { to: data.from, callId: data.callId });
+    setIncoming(data);
   });
   useSocketEvent('call:answered', async (d) => {
     const peer = peerRef.current;
     if (!peer || !d.answer) return;
+    setStage((s) => s && { ...s, status: 'Connecting…' });
     await peer.setRemoteDescription(new RTCSessionDescription(d.answer));
     await flushPendingIce(peer);
   });
@@ -145,7 +169,12 @@ export function CallProvider({ children }) {
     }
     await addIce(peer, d.candidate);
   });
-  useSocketEvent('call:ended', () => {
+  useSocketEvent('call:ended', (d) => {
+    if (incoming && d?.callId === incoming.callId) {
+      setIncoming(null);
+      toast(`Missed call from ${incoming.displayName || incoming.username}.`);
+      return;
+    }
     toast('The call has ended.');
     endCall(false);
   });
@@ -155,26 +184,38 @@ export function CallProvider({ children }) {
   });
 
   const startCall = useCallback(
-    async (type, to, peerName) => {
-      if (!socket?.connected) return toast('Calling is reconnecting. Please try again in a moment.');
-      if (!to || to === user?.id) return toast('Enter another member account ID.');
+    async (type, to, peerName, peerAvatar) => {
+      if (!socket?.connected) return toast('Calling is reconnecting. Please try again in a moment.', 'warning');
+      if (!to || to === user?.id) return toast('Enter another member account ID.', 'warning');
+      if (callRef.current.callId) return toast('You are already in a call.', 'warning');
       try {
         const callId = crypto.randomUUID();
         const peer = await createPeer(to, callId, type);
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
         socket.emit('call:invite', { to, offer, callType: type, callId });
-        setStage({ type, status: 'Calling…', peerName });
+        setStage({ callId, type, status: 'Calling…', peerId: to, peerName, peerAvatar });
       } catch (e) {
         endCall(false);
-        toast(e.message || 'Could not access your camera or microphone.');
+        toast(e.message || 'Could not access your camera or microphone.', 'error');
       }
     },
     [createPeer, socket, toast, user, endCall]
   );
 
   return (
-    <CallContext.Provider value={{ stage, localStream, remoteStream, startCall, endCall }}>
+    <CallContext.Provider
+      value={{
+        stage,
+        localStream,
+        remoteStream,
+        startCall,
+        endCall,
+        incoming,
+        acceptIncoming,
+        declineIncoming,
+      }}
+    >
       {children}
     </CallContext.Provider>
   );

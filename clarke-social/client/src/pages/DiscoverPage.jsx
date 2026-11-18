@@ -1,97 +1,159 @@
 import { useState } from 'react';
+import { Hash, Search, SearchX, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useNavigation } from '../context/NavigationContext';
-import { useToast } from '../context/ToastContext';
-import Avatar from '../components/Avatar';
 import PostCard from '../components/PostCard';
-import { ErrorState, Loading } from '../components/StateView';
+import { EmptyState, ErrorState, Loading } from '../components/StateView';
 import ViewHeading from '../components/ViewHeading';
+import MemberRow from '../components/feed/MemberRow';
+import { useDebouncedValue } from '../components/feed/useDebouncedValue';
 import { useAsync } from '../hooks/useAsync';
 import { usePostActions } from '../hooks/usePostActions';
-import { searchAll, searchUsers, toggleFollow } from '../services/usersService';
+import { searchAll, searchUsers, trending } from '../services/usersService';
 
-// Members (all members when the box is empty) and, for a search, matching posts and hashtags.
-export default function DiscoverPage({ params }) {
-  const { user } = useAuth();
-  const { openAuth, navigate } = useNavigation();
-  const toast = useToast();
-  const [q, setQ] = useState(params.q || '');
-  const state = useAsync(
-    () => (q.trim() ? searchAll(q.trim()) : searchUsers('').then((d) => ({ users: d.users, posts: [] }))),
-    [q, user?.id]
-  );
+const patch = (list, id, change) =>
+  list.map((x) => (x.id === id ? { ...x, ...(typeof change === 'function' ? change(x) : change) } : x));
 
-  const setUsers = (fn) => state.setData((d) => ({ ...d, users: fn(d.users) }));
-  const setPosts = (fn) => state.setData((d) => ({ ...d, posts: fn(d.posts) }));
-  const actions = usePostActions(
-    (id, change) =>
-      setPosts((list) =>
-        list.map((p) => (p.id === id ? { ...p, ...(typeof change === 'function' ? change(p) : change) } : p))
-      ),
-    (id) => setPosts((list) => list.filter((p) => p.id !== id))
-  );
-
-  const onFollow = async (id) => {
-    if (!user) return openAuth();
-    try {
-      const { following } = await toggleFollow(id);
-      setUsers((list) => list.map((u) => (u.id === id ? { ...u, isFollowing: following } : u)));
-    } catch (err) {
-      toast(err.message);
-    }
-  };
-
-  const data = state.data;
+function NoResults() {
   return (
-    <>
-      <ViewHeading title="Discover people" subtitle="Find creators and new connections across Clarke." />
-      <div className="card-panel" style={{ padding: 16 }}>
-        <input
-          id="discoverSearch"
-          placeholder="Search by name, username, post or #hashtag"
-          style={{ width: '100%', padding: 13, border: '1px solid var(--line)', borderRadius: 9, outline: 0 }}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-        />
-        <div id="discoverResults" style={{ marginTop: 14 }}>
-          {state.loading && !data && <Loading text="Searching…" />}
-          {state.error && <ErrorState message={state.error} onRetry={state.reload} />}
-          {data?.users.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 11 }}>No members found.</p>}
-          {data?.users.map((u) => (
-            <div className="person-row" key={u.id}>
-              <Avatar src={u.avatar} name={u.displayName} />
-              <div
-                className="person-info"
-                style={{ cursor: 'pointer' }}
-                onClick={() => navigate('member', { id: u.id })}
-              >
-                <b>{u.displayName}</b>
-                <small>
-                  @{u.username} · ID {u.id}
-                </small>
-              </div>
-              <button className={`follow-btn${u.isFollowing ? ' following' : ''}`} onClick={() => onFollow(u.id)}>
-                {u.isFollowing ? 'Following' : 'Follow'}
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-      {data?.posts.length > 0 && (
+    <EmptyState icon={SearchX} title="No results found.">
+      Try another name or keyword.
+    </EmptyState>
+  );
+}
+
+// Trending hashtags offered on the Posts tab before anything is searched.
+function TrendingTags({ onPick }) {
+  const tags = useAsync(() => trending().then((d) => d.tags), []);
+  return (
+    <div className="card card-pad stack-sm">
+      <p className="text-sm text-muted">Search for a keyword or #hashtag to find posts.</p>
+      {tags.data?.length > 0 && (
         <>
-          <div className="feed-heading">
-            <div>
-              <h2>Posts</h2>
-              <p>Matching “{q.trim()}”</p>
-            </div>
-          </div>
-          <div className="feed-list">
-            {data.posts.map((p) => (
-              <PostCard key={p.id} post={p} actions={actions} />
+          <h2 className="section-label">Trending this week</h2>
+          <div className="chip-row discover-tags">
+            {tags.data.map((t) => (
+              <button type="button" key={t.tag} className="chip" onClick={() => onPick(t.tag)}>
+                <Hash size={16} aria-hidden="true" />
+                {t.tag.slice(1)}
+                <span className="text-muted">{t.posts}</span>
+              </button>
             ))}
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// Members (everyone when the box is empty) and, for a search, matching posts and hashtags.
+export default function DiscoverPage({ params }) {
+  const { user } = useAuth();
+  const [input, setInput] = useState(params.q || '');
+  const [chosenTab, setTab] = useState(params.q?.startsWith('#') ? 'posts' : null);
+  const q = useDebouncedValue(input.trim(), 300);
+  const state = useAsync(
+    () => (q ? searchAll(q) : searchUsers('').then((d) => ({ users: d.users, posts: [] }))),
+    [q, user?.id]
+  );
+  const data = state.data;
+  // Until the member picks a tab, show posts when a search matches posts but no members.
+  const tab = chosenTab || (q && data && !data.users.length && data.posts.length ? 'posts' : 'members');
+
+  const setPosts = (fn) => state.setData((d) => ({ ...d, posts: fn(d.posts) }));
+  const actions = usePostActions(
+    (id, change) => setPosts((list) => patch(list, id, change)),
+    (id) => setPosts((list) => list.filter((p) => p.id !== id))
+  );
+  const onFollowChange = (id, isFollowing) =>
+    state.setData((d) => ({ ...d, users: patch(d.users, id, { isFollowing }) }));
+
+  const pickTag = (tag) => {
+    setInput(tag);
+    setTab('posts');
+  };
+
+  let results;
+  if (state.loading && !data)
+    results = (
+      <div className="card card-pad">
+        <Loading text="Searching" variant={tab === 'posts' ? 'feed' : 'list'} count={tab === 'posts' ? 2 : 5} />
+      </div>
+    );
+  else if (state.error && !data) results = <ErrorState message={state.error} onRetry={state.reload} />;
+  else if (tab === 'members')
+    results = data.users.length ? (
+      <ul className="card member-list">
+        {data.users.map((u) => (
+          <MemberRow key={u.id} member={u} onFollowChange={onFollowChange} />
+        ))}
+      </ul>
+    ) : q ? (
+      <NoResults />
+    ) : (
+      <EmptyState icon={Users} title="No people found.">
+        Try adjusting your search or filters.
+      </EmptyState>
+    );
+  else if (!q) results = <TrendingTags onPick={pickTag} />;
+  else
+    results = data.posts.length ? (
+      <div className="feed-list">
+        {data.posts.map((p) => (
+          <PostCard key={p.id} post={p} actions={actions} />
+        ))}
+      </div>
+    ) : (
+      <NoResults />
+    );
+
+  const tabs = [
+    ['members', 'Members', q && data ? data.users.length : null],
+    ['posts', 'Posts', q && data ? data.posts.length : null],
+  ];
+
+  return (
+    <>
+      <ViewHeading title="Discover" subtitle="Find people, posts and hashtags across Clarke." />
+      <div className="discover-search">
+        <label className="search-field">
+          <Search size={20} aria-hidden="true" />
+          <span className="sr-only">Search Clarke</span>
+          <input
+            id="discoverSearch"
+            type="search"
+            placeholder="Search by name, username, post or #hashtag"
+            value={input}
+            autoComplete="off"
+            onChange={(e) => setInput(e.target.value)}
+          />
+          {state.loading && data && <span className="spinner" aria-hidden="true" />}
+        </label>
+      </div>
+      <div className="tabs" role="tablist" aria-label="Search results">
+        {tabs.map(([key, label, count]) => (
+          <button
+            type="button"
+            key={key}
+            role="tab"
+            id={`discoverTab-${key}`}
+            aria-selected={tab === key}
+            aria-controls="discoverResults"
+            className="tab"
+            onClick={() => setTab(key)}
+          >
+            {label}
+            {count !== null && <span className="badge badge-neutral">{count}</span>}
+          </button>
+        ))}
+      </div>
+      <div
+        id="discoverResults"
+        role="tabpanel"
+        aria-labelledby={`discoverTab-${tab}`}
+        aria-busy={state.loading || undefined}
+      >
+        {results}
+      </div>
     </>
   );
 }
