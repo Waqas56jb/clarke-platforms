@@ -1,126 +1,103 @@
-# Clarke Social — server
+# Clarke Social — API server
 
-Express + SQLite (better-sqlite3) + Socket.IO + Stripe API for Clarke Social and its Clarke Dating module.
-This is the Clarke Dating full-stack `server.js` split into modules, plus everything that existed only in the
-older Clarke Social starter.
+Express + PostgreSQL + Socket.IO API for Clarke Social and its Clarke Dating module: accounts, posts, stories,
+messaging, notifications, dating, one-to-one calls, music, movies and WiPay payments.
 
-## Run
+## Run locally
 
-Requires Node.js 20+.
+Requires Node.js 20+ and Docker (for PostgreSQL).
 
 ```bash
-cp .env.example .env      # then set JWT_SECRET to a random value of 32+ characters
+cp .env.example .env          # set POSTGRES_PASSWORD and the same password in DATABASE_URL
+docker compose -p clarke-social up -d db   # PostgreSQL 17 on 127.0.0.1:5433
 npm install
-npm run dev               # or: npm start
+npm run dev                   # http://localhost:3000; migrations run automatically on start
 ```
 
-The API listens on http://localhost:3000. The SQLite database is created as `clarke.sqlite` and uploads are stored
-in `uploads/` (both configurable in `.env`). In development the client (port 5173) proxies `/api`, `/uploads` and
-`/socket.io` here, so the browser still sees one origin and the HTTP-only session cookie works unchanged.
+The client (port 5173) proxies `/api`, `/uploads` and `/socket.io` here in development. Scripts: `npm start`,
+`npm run dev`, `npm run migrate`, `npm run lint`, `npm run format`.
 
-For a single-origin production deployment, build the client and set `CLIENT_DIST_DIR=../client/dist`; the server
-then serves the built client and falls back to `index.html`, as the original did with `public/`.
-
-| Script                      | Purpose                                    |
-| --------------------------- | ------------------------------------------ |
-| `npm start` / `npm run dev` | Start the server (dev restarts on changes) |
-| `npm run lint`              | ESLint                                     |
-| `npm run format`            | Prettier                                   |
-
-## Environment
-
-| Variable                                       | Purpose                                                                                   |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `NODE_ENV`                                     | `production` makes `JWT_SECRET` mandatory and the session cookie `Secure`                 |
-| `PORT`                                         | Default 3000                                                                              |
-| `JWT_SECRET`                                   | Session signing secret (32+ chars). A temporary random secret is used in development only |
-| `APP_ORIGIN`                                   | Client origin; used for CORS and Stripe success/cancel URLs                               |
-| `MAX_UPLOAD_MB`                                | Upload limit, clamped to 1–250 MB (default 100)                                           |
-| `UPLOAD_DIR`, `DB_FILE`                        | Storage locations, relative to this folder                                                |
-| `CLIENT_DIST_DIR`                              | Optional built client to serve                                                            |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`   | Optional Stripe Checkout (test keys first)                                                |
-| `TURN_URL`, `TURN_USERNAME`, `TURN_CREDENTIAL` | Optional TURN relay for calls                                                             |
-
-## Structure
+## Production architecture
 
 ```
-src/
-  config/env.js            env loading and validation
-  db/schema.js, connection.js
-  middleware/              auth (cookie or Bearer), rate limits, multer upload checks, error handler
-  routes/                  one router per resource (+ legacyRoutes for starter-only endpoints)
-  controllers/             request/response handling
-  services/                business logic and SQL
-  sockets/                 Socket.IO auth and call signalling
-  utils/
-  app.js, server.js
+Browser ──> Vercel (website + middleware.js) ──/api + X-Clarke-Proxy-Secret──> Railway API ──> Railway PostgreSQL
+   │                                                                              │
+   └── direct to Railway: uploads (upload token), media, signed file links, Socket.IO (socket token)
+                                                                                  └── Railway volume /data
 ```
 
-## API (unchanged paths, bodies, responses and status codes)
+- Normal API calls go through the website so the HTTP-only session cookie stays first-party.
+- Uploads, media, signed downloads/streams and the Socket.IO WebSocket go straight to the API host: Vercel's proxy
+  limits request bodies to 4.5 MB and cannot carry WebSockets. These requests use short-lived bearer tokens
+  (`GET /api/uploads/token`, `GET /api/auth/socket-token`), never cookies.
 
-| Method      | Path                                                                      | Notes                                                    |
-| ----------- | ------------------------------------------------------------------------- | -------------------------------------------------------- |
-| POST        | `/api/auth/register`, `/api/auth/login`, `/api/auth/logout`               | HTTP-only `clarke_session` cookie                        |
-| GET / PATCH | `/api/me`                                                                 |                                                          |
-| GET / POST  | `/api/posts`                                                              | multipart `media` upload; `allowDownload` only for video |
-| POST        | `/api/posts/:id/like`                                                     | toggle                                                   |
-| GET / POST  | `/api/posts/:id/comments`                                                 |                                                          |
-| POST        | `/api/posts/:id/report`                                                   |                                                          |
-| GET         | `/api/posts/:id/download`                                                 | creator permission enforced                              |
-| POST        | `/api/users/:id/follow`                                                   | toggle                                                   |
-| GET         | `/api/users/search?q=`                                                    |                                                          |
-| GET / PUT   | `/api/dating/me`                                                          | 18+ check                                                |
-| GET         | `/api/dating/discover`, `/api/dating/matches`                             |                                                          |
-| POST        | `/api/dating/like/:id`, `/api/dating/block/:id`, `/api/dating/report/:id` |                                                          |
-| GET         | `/api/payments/config`, `/api/payments/history`                           |                                                          |
-| POST        | `/api/payments/checkout`                                                  | 10/hour limit; 503 until Stripe keys are set             |
-| POST        | `/api/payments/webhook`                                                   | raw body, Stripe signature verified                      |
-| GET         | `/api/calls/ice-config`, `/api/calls/history`                             |                                                          |
-| GET         | `/uploads/*`                                                              | static, 7-day immutable cache                            |
+## Environment variables
 
-Socket.IO events: `call:invite`, `call:answer`, `call:ice`, `call:decline`, `call:end` (with `call:incoming`,
-`call:ringing`, `call:answered`, `call:declined`, `call:ended`, `call:error`), and disconnect clean-up.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | PostgreSQL connection string (Railway: `${{Postgres-51D4.DATABASE_URL}}`) |
+| `JWT_SECRET` | production | 32+ random characters; signs sessions and short-lived tokens |
+| `PROXY_SECRET` | production | Same value as Vercel's `PROXY_SECRET`; see "Rate limits and client IPs" |
+| `APP_ORIGIN` | yes | Website origin, e.g. `https://clarke-social-site.vercel.app` (CORS, email links, payment return) |
+| `TRUST_PROXY` | production | `1` on Railway (its edge proxy) |
+| `UPLOAD_DIR`, `PRIVATE_UPLOAD_DIR` | production | `/data/media` and `/data/private` on the Railway volume |
+| `MAX_UPLOAD_MB`, `MAX_MOVIE_UPLOAD_MB` | no | Defaults 100 and 500 |
+| `RESEND_API_KEY`, `EMAIL_FROM` | for email | Verification and password-reset emails via [Resend](https://resend.com/api-keys). `EMAIL_FROM` must use a domain verified in Resend |
+| `WIPAY_ACCOUNT_NUMBER`, `WIPAY_API_KEY` | for payments | WiPay dashboard → Developer → Payment API |
+| `WIPAY_ENVIRONMENT` | for payments | `sandbox` or `live` |
+| `WIPAY_COUNTRY_CODE` | for payments | Processing platform: `GD` for a Grenada account (sandbox testing uses `TT`, see below) |
+| `WIPAY_CURRENCY`, `WIPAY_FEE_STRUCTURE` | no | `USD`; `merchant_absorb` / `customer_pay` / `split` |
+| `TURN_URLS` | for calls across networks | Comma-separated `turn:`/`turns:` URLs |
+| `TURN_USERNAME`, `TURN_CREDENTIAL` | with static TURN | Long-term TURN credentials |
+| `TURN_SHARED_SECRET`, `TURN_TTL_SECONDS` | with coturn-style TURN | Short-lived credentials generated per member |
 
-### Ported from the Clarke Social starter
+When an optional service is not configured the feature says so clearly ("Email sending is not configured yet",
+"Payments are not configured yet") and never pretends to succeed.
 
-A line-by-line comparison with the starter's `server.js` found these items missing from the Dating build. They are
-all included here so nothing is lost:
+## Security
 
-| Starter feature                                                            | Where it lives now                                      |
-| -------------------------------------------------------------------------- | ------------------------------------------------------- |
-| `POST /api/messages` (ciphertext envelope) and `GET /api/messages/:userId` | `routes/messageRoutes.js`, `services/messageService.js` |
-| `messages` table                                                           | `db/schema.js`                                          |
-| `message:new` Socket.IO event to the recipient                             | `controllers/messageController.js`                      |
-| `POST /api/register`, `POST /api/login` returning a Bearer token           | `routes/legacyRoutes.js`                                |
-| `POST /api/follow/:userId` (follow only, idempotent)                       | `routes/legacyRoutes.js`                                |
-| `GET /api/health`                                                          | `routes/legacyRoutes.js`                                |
-| General `/api/` rate limit (300 requests / 15 min per IP)                  | `middleware/rateLimits.js`                              |
-| CORS restricted to `APP_ORIGIN`                                            | `app.js`                                                |
-| Socket.IO auth via `handshake.auth.token`                                  | `sockets/socketAuth.js`                                 |
-| `call:signal` generic relay                                                | `sockets/callHandlers.js`                               |
+- **Sessions:** HTTP-only, SameSite=Lax, Secure (production) cookie holding a 7-day JWT with a token version, so a
+  password reset signs out every other session. Every private route checks the session against the database.
+- **CSRF:** signed double-submit token (`GET /api/auth/csrf` sets `clarke_csrf`; state-changing requests must send it
+  in `X-CSRF-Token`). Upload routes use bearer tokens instead of cookies, so CSRF does not apply to them.
+- **Passwords:** bcrypt (cost 12), 10–128 characters, common passwords and username/email rejected.
+- **Email:** verification required before sign-in once email sending is configured; reset links expire in 1 hour,
+  verification links in 24 hours; only SHA-256 hashes of link tokens are stored; responses do not reveal whether
+  an email has an account.
+- **Uploads:** size limits per kind; file type checked from the file's first bytes (not the name or browser type);
+  renamed with the detected extension; rights evidence and full films stored privately and served only through
+  signed links that re-check permission on every request (including creator-controlled post downloads).
+- **Rate limits and client IPs:** Vercel's middleware adds `X-Clarke-Proxy-Secret`. Only when that secret matches
+  does the API trust `X-Vercel-Forwarded-For` (which Vercel itself overwrites with the visitor's real IP). Requests
+  to the Railway address without the secret are refused for every `/api` route except uploads, signed files and
+  health; for those, the IP comes from Railway's edge proxy (`TRUST_PROXY=1`), which callers cannot forge. Limits:
+  auth 30/15 min, email 10/hour, uploads 60/15 min, messages 40/min, checkout 10/hour, API 1,500/15 min, calls 20/min.
+- **Errors:** one central handler; unexpected errors are logged server-side and clients get a generic message.
+- Helmet headers, CORS limited to `APP_ORIGIN`, Socket.IO limited to `APP_ORIGIN` with token auth.
 
-**Private messaging remains disabled in the product.** The Dating build notes state that private messaging is
-deliberately disabled until a maintained Signal Protocol implementation and full device/key lifecycle are
-integrated, and that E2EE must not be claimed yet. The envelope endpoints only store and relay ciphertext supplied
-by a client; no client encrypts messages and the Messages screen keeps its "Private chat is being secured" notice.
+## Messaging, calls and blocks
 
-Merge decisions: the starter's `users` table had no display name, so `/api/register` stores the username as the
-display name; its tokens use the same signing key and format as the cookie session so they work on every
-authenticated route. The legacy register/login routes also get the 30-per-15-minutes auth limit.
+One-to-one messages are stored in PostgreSQL and delivered live over Socket.IO, with unread counts and read
+receipts. **They are not end-to-end encrypted.** Members can message and call each other when they are a mutual
+dating match or follow each other, unless either has blocked the other (blocks apply to dating, messaging and
+calls).
 
-## Security measures kept
+## Payments (WiPay)
 
-bcrypt (cost 12) password hashing; HTTP-only, SameSite=Lax session cookie (Secure in production); Helmet with
-`x-powered-by` disabled; auth (30/15 min), checkout (10/hour) and general API rate limits; per-user call attempt
-limit (20/min); upload size limit and JPG/PNG/WEBP/GIF/MP4/WEBM/MOV type check; Stripe webhook signature
-verification; CORS limited to `APP_ORIGIN`; Socket.IO same-origin only; input validation as in the original.
+Hosted checkout (`POST {host}/plugins/payments/request`, `method=credit_card_co`). WiPay redirects the browser to
+`/api/payments/wipay/return`; access is granted only when `status=success` and
+`md5(transaction_id + original_total + api_key)` matches, using the amount stored on our side. Each transaction id
+can be used once. Prices are in USD (Grenada's WiPay platform accepts USD only). WiPay has no recurring billing,
+so each monthly plan purchase adds 30 days; film rentals give 48 hours.
 
-## Known behaviour carried over unchanged
+WiPay's **Grenada sandbox** does not enable card checkout for the shared test account (it answers "The method
+credit_card_co is not supported on the GD platform for USD"), so the sandbox is tested on the Trinidad platform
+(`WIPAY_COUNTRY_CODE=TT`) with WiPay's public sandbox account (1234567890 / 123). For live payments use the
+client's own WiPay account and ask WiPay to enable card payments for it.
 
-- A request for a missing file under `/uploads/` returns 500 "Something went wrong" (the original error handler
-  converts the static handler's 404). Kept to preserve status codes.
-- The general limiter counts every API call (including feed reloads after a like), so heavy use from one IP can
-  receive 429 within 15 minutes. This is the starter's setting.
+## Data
 
-The production checklist in the original build notes (CSRF protection, email verification, password reset,
-moderation, managed database, media scanning, TURN, legal review, security testing) still applies.
+`src/db/migrations/001_initial_schema.sql` holds every table from the original SQLite schema (users, posts, likes,
+comments, follows, reports, payments, dating profiles/likes/blocks/reports, call history) plus email tokens, saved
+posts, shares, stories, notifications, messages, memberships, music (tracks, likes, playlists) and movies
+(watchlist, ratings, rentals). Reports are stored for a future admin panel; `users.role` is kept for it.

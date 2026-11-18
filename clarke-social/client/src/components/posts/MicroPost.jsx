@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '../../context/NavigationContext';
+import { useToast } from '../../context/ToastContext';
+import { addComment, listComments } from '../../services/postsService';
+import { timeAgo } from '../../utils/format';
+import Avatar from '../Avatar';
 
 function withHashtags(text) {
   return text.split(/((?:^|\s)#[A-Za-z0-9_]+)/g).map((part, i) => {
@@ -13,49 +19,80 @@ function withHashtags(text) {
   });
 }
 
-export default function MicroPost({ post: p, index, onLike, onRepost, onShare, onReply }) {
+export default function MicroPost({ post: p, index, actions, onReplied }) {
+  const { user } = useAuth();
+  const { openAuth, navigate } = useNavigation();
+  const toast = useToast();
   const [replyOpen, setReplyOpen] = useState(false);
+  const [replies, setReplies] = useState(null);
   const [reply, setReply] = useState('');
+  const shown = p.original || p;
 
-  const sendReply = () => {
+  const toggleReplies = async () => {
+    const opening = !replyOpen;
+    setReplyOpen(opening);
+    if (opening && replies === null) {
+      try {
+        setReplies((await listComments(p.id)).comments);
+      } catch (e) {
+        toast(e.message);
+      }
+    }
+  };
+
+  const sendReply = async () => {
+    if (!user) return openAuth();
     const v = reply.trim();
     if (!v) return;
-    onReply(index, v);
-    setReply('');
-    setReplyOpen(false);
+    try {
+      const { comment } = await addComment(p.id, v);
+      setReplies((r) => [...(r || []), comment]);
+      setReply('');
+      onReplied(p.id);
+    } catch (e) {
+      toast(e.message);
+    }
   };
 
   return (
     <article className="card-panel micro-post">
       <div className="micro-post-head">
-        <div className={`avatar ${index % 2 ? 'avatar-orange' : 'avatar-purple'}`}>{p.name[0]}</div>
-        <div className="person-info">
-          <b>{p.name}</b>
+        <Avatar src={p.avatar} name={p.displayName} color={index % 2 ? 'avatar-orange' : 'avatar-purple'} />
+        <div className="person-info" style={{ cursor: 'pointer' }} onClick={() => navigate('member', { id: p.userId })}>
+          <b>
+            {p.displayName}
+            {p.original && <span className="post-feeling"> reposted {p.original.displayName}</span>}
+          </b>
           <small>
-            {p.handle} · {p.time}
+            @{p.username} · {timeAgo(p.createdAt)}
           </small>
         </div>
       </div>
-      <div className="micro-post-body">{withHashtags(p.text)}</div>
+      <div className="micro-post-body">{withHashtags(shown.body || '')}</div>
       <div className="post-actions">
-        <button className={p.liked ? 'selected' : ''} onClick={() => onLike(index)}>
+        <button className={p.liked ? 'selected' : ''} onClick={() => actions.like(p)}>
           ♥ {p.likes} Like
         </button>
-        <button onClick={() => setReplyOpen((o) => !o)}>▢ Reply ({p.replies.length})</button>
-        <button className={p.reposted ? 'selected' : ''} onClick={() => onRepost(index)}>
+        <button onClick={toggleReplies}>▢ Reply ({p.comments})</button>
+        <button
+          className={p.reposted ? 'selected' : ''}
+          onClick={() => actions.repost(shown.id === p.id ? p : { ...p, id: shown.id })}
+        >
           {p.reposted ? '↻ Reposted' : '↻ Repost'}
         </button>
-        <button onClick={() => onShare(index)}>↗ Share</button>
+        <button onClick={() => actions.share(shown.id === p.id ? p : { ...p, id: shown.id })}>↗ Share</button>
       </div>
-      {p.replies.length ? (
+      {replyOpen && replies?.length ? (
         <div className="reply-list">
-          {p.replies.map((r, i) => (
-            <p key={i}>{r}</p>
+          {replies.map((r) => (
+            <p key={r.id}>
+              <b>{r.display_name}:</b> {r.body}
+            </p>
           ))}
         </div>
       ) : null}
       <div className={`reply-box${replyOpen ? '' : ' hidden'}`}>
-        <input maxLength={500} placeholder="Write a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
+        <input maxLength={800} placeholder="Write a reply…" value={reply} onChange={(e) => setReply(e.target.value)} />
         <button className="btn btn-primary" onClick={sendReply}>
           Send
         </button>

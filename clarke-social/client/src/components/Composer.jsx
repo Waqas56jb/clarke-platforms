@@ -2,17 +2,30 @@ import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
 import { useToast } from '../context/ToastContext';
-import { useFeed } from '../context/FeedContext';
-import { createPost } from '../services/postsService';
-import { initials } from '../utils/format';
+import { createMediaPost, createTextPost } from '../services/postsService';
+import Avatar from './Avatar';
 
-export default function Composer() {
+export const FEELINGS = [
+  'happy',
+  'grateful',
+  'excited',
+  'loved',
+  'blessed',
+  'relaxed',
+  'tired',
+  'sad',
+  'proud',
+  'motivated',
+];
+
+export default function Composer({ onPosted }) {
   const { user } = useAuth();
   const { openAuth } = useNavigation();
   const toast = useToast();
-  const { loadFeed } = useFeed();
   const [expanded, setExpanded] = useState(false);
   const [preview, setPreview] = useState(null);
+  const [feeling, setFeeling] = useState('');
+  const [picking, setPicking] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const bodyRef = useRef(null);
   const mediaRef = useRef(null);
@@ -22,37 +35,39 @@ export default function Composer() {
 
   const onMediaChange = () => {
     const file = mediaRef.current.files[0];
-    if (!file) {
-      setPreview(null);
-      return;
-    }
-    setPreview({ url: URL.createObjectURL(file), isVideo: file.type.startsWith('video/') });
-    setExpanded(true);
+    setPreview(file ? { url: URL.createObjectURL(file), isVideo: file.type.startsWith('video/') } : null);
+    if (file) setExpanded(true);
   };
 
   const focusPost = () => {
+    if (!user) return openAuth();
     setExpanded(true);
     setTimeout(() => bodyRef.current?.focus());
+  };
+
+  const reset = () => {
+    bodyRef.current.value = '';
+    mediaRef.current.value = '';
+    downloadRef.current.checked = false;
+    setPreview(null);
+    setFeeling('');
+    setPicking(false);
+    setExpanded(false);
   };
 
   const onSubmit = async (e) => {
     e.preventDefault();
     if (!user) return openAuth();
     const file = mediaRef.current.files[0];
-    const form = new FormData();
-    form.append('body', bodyRef.current.value);
-    form.append('allowDownload', downloadRef.current.checked ? 'true' : 'false');
-    if (file) form.append('media', file);
+    const body = bodyRef.current.value;
     setPublishing(true);
     try {
-      await createPost(form);
-      bodyRef.current.value = '';
-      mediaRef.current.value = '';
-      setPreview(null);
-      downloadRef.current.checked = false;
-      setExpanded(false);
-      await loadFeed();
+      if (file)
+        await createMediaPost({ body, feeling, allowDownload: downloadRef.current.checked ? 'true' : 'false' }, file);
+      else await createTextPost({ body, feeling });
+      reset();
       toast('Your post is live on Clarke.');
+      onPosted?.();
     } catch (err) {
       toast(err.message);
     } finally {
@@ -63,9 +78,7 @@ export default function Composer() {
   return (
     <section className={`composer card-panel${expanded ? ' expanded' : ''}`} id="composer">
       <div className="composer-top">
-        <div className="avatar avatar-blue" id="composerAvatar">
-          {initials(user?.displayName || 'C')}
-        </div>
+        <Avatar src={user?.avatar} name={user?.displayName || 'C'} color="avatar-blue" />
         <button className="composer-prompt" id="focusPost" onClick={focusPost}>
           What&apos;s happening in your world?
         </button>
@@ -78,6 +91,24 @@ export default function Composer() {
           placeholder="Share something with your community..."
           rows={3}
         ></textarea>
+        {feeling && <p className="post-feeling">Feeling {feeling}</p>}
+        {picking && (
+          <div className="feeling-menu">
+            {FEELINGS.map((f) => (
+              <button
+                type="button"
+                key={f}
+                className={f === feeling ? 'active' : ''}
+                onClick={() => {
+                  setFeeling(f === feeling ? '' : f);
+                  setPicking(false);
+                }}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="upload-preview" id="uploadPreview">
           {preview &&
             (preview.isVideo ? (
@@ -99,12 +130,7 @@ export default function Composer() {
               hidden
               onChange={onMediaChange}
             />
-            <button
-              type="button"
-              className="tool-btn"
-              id="feelingBtn"
-              onClick={() => toast('Feeling tags are coming soon.')}
-            >
+            <button type="button" className="tool-btn" id="feelingBtn" onClick={() => setPicking((p) => !p)}>
               <span className="tool-icon orange">☺</span> Feeling
             </button>
             <label className="download-toggle">
@@ -112,7 +138,7 @@ export default function Composer() {
             </label>
           </div>
           <button className="btn btn-primary" type="submit" id="publishBtn" disabled={publishing}>
-            Publish <span>↗</span>
+            {publishing ? 'Publishing…' : 'Publish'} <span>↗</span>
           </button>
         </div>
       </form>

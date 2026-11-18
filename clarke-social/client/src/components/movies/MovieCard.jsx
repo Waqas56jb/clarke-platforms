@@ -1,39 +1,44 @@
-export default function MovieCard({ movie, saved, onToggleSave }) {
-  const [title, genre, access, label, rating] = movie;
+import { mediaUrl } from '../../services/http';
+import { money } from '../../utils/format';
+
+export default function MovieCard({ movie: m, mine, onTrailer, onWatchlist, onWatch, onRent, onDelete, onReport }) {
+  const ratingText = m.ratings ? `★ ${m.rating}` : 'Not rated yet';
   return (
     <article className="movie-card">
-      <div className="movie-poster">{title}</div>
+      <div className="movie-poster">
+        {m.posterUrl && <img src={mediaUrl(m.posterUrl)} alt="" />}
+        <span>{m.title}</span>
+      </div>
       <div className="movie-meta">
-        <b>{title}</b>
+        <b>{m.title}</b>
         <small>
-          {genre} · ★ {rating} · {label}
+          {m.genre} · {ratingText}
+          {m.label ? ` · ${m.label}` : ''}
         </small>
         <div className="movie-actions">
-          <button
-            className="btn btn-primary"
-            onClick={() =>
-              alert(`Trailer preview selected: ${title}. Connect a licensed trailer video to enable playback.`)
-            }
-          >
-            ▶ Trailer
+          {m.trailerUrl && (
+            <button className="btn btn-primary" onClick={onTrailer}>
+              ▶ Trailer
+            </button>
+          )}
+          <button className="btn" style={{ background: '#edf3ff', color: '#155eef' }} onClick={onWatchlist}>
+            {m.inWatchlist ? '♥ Saved' : '♡ Watchlist'}
           </button>
-          <button
-            className="btn"
-            style={{ background: '#edf3ff', color: '#155eef' }}
-            onClick={() => onToggleSave(title)}
-          >
-            {saved ? '♥ Saved' : '♡ Watchlist'}
-          </button>
+          {m.hasAccess ? (
+            <button className="btn" style={{ background: '#f3f5f9', color: '#53627a' }} onClick={onWatch}>
+              {m.access === 'free' ? 'Watch free' : 'Watch'}
+            </button>
+          ) : (
+            <button className="btn" style={{ background: '#f3f5f9', color: '#53627a' }} onClick={onRent}>
+              Rent {money(m.priceCents)}
+            </button>
+          )}
           <button
             className="btn"
             style={{ background: '#f3f5f9', color: '#53627a' }}
-            onClick={() =>
-              alert(
-                `Selected: ${title}. Secure checkout and streaming access will be enabled after payment integration.`
-              )
-            }
+            onClick={mine ? onDelete : onReport}
           >
-            {access === 'Free' ? 'Watch free' : 'Rent'}
+            {mine ? 'Delete' : 'Report'}
           </button>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { useAuth } from '../context/AuthContext';
 import SideProfile from './SideProfile';
 import ViewButton from './ViewButton';
 
@@ -16,6 +17,7 @@ const NAV_ITEMS = [
 ];
 
 export default function Sidebar() {
+  const { unreadMessages } = useAuth();
   return (
     <aside className="sidebar">
       <a className="brand" href="#home">
@@ -30,6 +32,7 @@ export default function Sidebar() {
           <ViewButton key={item.view} className="nav-link" view={item.view}>
             <span>{item.icon}</span> {item.label}
             {item.isNew && <i className="nav-new">NEW</i>}
+            {item.view === 'messages' && unreadMessages > 0 && <i className="nav-new">{unreadMessages}</i>}
           </ViewButton>
         ))}
       </nav>

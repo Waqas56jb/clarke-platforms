@@ -1,0 +1,61 @@
+/* Styles for the live features (messaging, notifications, stories, players). Built only from the existing
+   design tokens and patterns in clarke.css so the look stays the same. */
+img.avatar{object-fit:cover;background:#e6efff}
+.top-avatar img{width:100%;height:100%;border-radius:50%;object-fit:cover;display:block}
+.live-notice{margin:14px 42px 0;padding:11px 14px;border-radius:10px;background:#eef4ff;border:1px solid #dbe7ff;color:#33466b;font-size:12px;line-height:1.5}
+.notif-wrap{position:relative}
+.notif-dot{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#ed5483;color:#fff;font-size:9px;font-weight:800;display:grid;place-items:center}
+.notif-menu{position:absolute;right:0;top:46px;width:min(340px,86vw);max-height:420px;overflow:auto;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:12px;padding:8px;z-index:30}
+.notif-item{display:flex;gap:9px;align-items:center;padding:9px;border-radius:8px;font-size:11px;color:#44536b;width:100%;border:0;background:none;text-align:left}
+.notif-item:hover{background:#f5f8ff}.notif-item.unread{background:#f2f6ff}
+.notif-item small{display:block;color:var(--muted);margin-top:3px;font-size:10px}
+.notif-head{display:flex;justify-content:space-between;align-items:center;padding:4px 6px 8px;font:800 13px Manrope}
+.search-section{font-size:9px;font-weight:800;letter-spacing:1px;color:var(--muted);padding:8px 10px 4px}
+.search-result{cursor:pointer}
+.post-feeling{color:var(--muted);font-weight:500}
+.feeling-menu{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.feeling-menu button{border:1px solid var(--line);background:#fff;border-radius:20px;padding:6px 10px;font-size:10px;color:#596981}
+.feeling-menu button.active{background:#edf3ff;border-color:#b8ceff;color:var(--blue)}
+.story-ring img{width:100%;height:100%;border-radius:50%;object-fit:cover;border:3px solid #fff}
+.story{cursor:pointer}
+.story-viewer{width:min(420px,100%);padding:16px;text-align:center}
+.story-viewer img,.story-viewer video{width:100%;max-height:70vh;object-fit:contain;border-radius:12px;background:#071a3d}
+.story-viewer .story-meta{display:flex;justify-content:space-between;align-items:center;margin:4px 30px 12px 0;font-size:11px;color:var(--muted)}
+.story-progress{display:flex;gap:4px;margin-bottom:10px}.story-progress span{flex:1;height:3px;border-radius:2px;background:#dbe5f5}.story-progress span.done{background:var(--blue)}
+.story-nav{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.chat-layout{display:grid;grid-template-columns:270px minmax(0,1fr);min-height:520px;overflow:hidden;padding:0}
+.chat-list{border-right:1px solid var(--line);overflow:auto;max-height:640px}
+.chat-list h3{font:800 12px Manrope;margin:14px 14px 6px;color:var(--muted);letter-spacing:.5px}
+.chat-item{display:flex;gap:10px;align-items:center;width:100%;border:0;background:none;padding:11px 14px;text-align:left;border-bottom:1px solid #f0f2f6}
+.chat-item:hover,.chat-item.active{background:#f2f6ff}
+.chat-item b{display:block;font-size:12px}.chat-item small{display:block;color:var(--muted);font-size:10px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+.chat-unread{margin-left:auto;background:var(--blue);color:#fff;border-radius:10px;font-size:9px;font-weight:800;padding:3px 7px}
+.chat-thread{display:flex;flex-direction:column;min-width:0}
+.chat-thread-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line)}
+.chat-thread-head .person-info{flex:1}
+.chat-thread-actions{display:flex;gap:6px;flex-wrap:wrap}
+.chat-thread-actions .btn{font-size:10px;padding:7px 10px}
+.chat-messages{flex:1;overflow:auto;padding:16px;display:flex;flex-direction:column;gap:9px;max-height:460px;min-height:300px;background:#fafbfe}
+.chat-bubble{max-width:75%;padding:9px 12px;border-radius:13px;background:#fff;border:1px solid var(--line);font-size:12px;line-height:1.5;align-self:flex-start;overflow-wrap:anywhere;white-space:pre-wrap}
+.chat-bubble.mine{align-self:flex-end;background:var(--blue);border-color:var(--blue);color:#fff}
+.chat-bubble small{display:block;font-size:9px;opacity:.7;margin-top:4px}
+.chat-compose{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}
+.chat-compose input{flex:1;min-width:0;border:1px solid var(--line);border-radius:9px;padding:11px;outline:0}
+.chat-disclaimer{font-size:10px;color:var(--muted);padding:0 16px 12px;line-height:1.5}
+.chat-back{display:none}
+.member-header{padding:22px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+.member-header .avatar{width:72px;height:72px;font-size:26px}
+.member-stats{display:flex;gap:16px;font-size:11px;color:var(--muted);margin-top:6px}.member-stats b{color:var(--ink)}
+.member-actions{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.player-modal{width:min(820px,100%)}
+.player-modal video{width:100%;max-height:70vh;border-radius:12px;background:#071a3d}
+.movie-poster img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.movie-poster{position:relative}.movie-poster span{position:relative;text-shadow:0 2px 8px #0008}
+.music-track.playing{background:#edf3ff}
+.music-track select{border:1px solid var(--line);border-radius:8px;padding:6px;font-size:10px;max-width:120px}
+.music-track .track-actions{display:flex;gap:6px;align-items:center}
+.inline-error{color:#d84a66;font-size:11px;margin:8px 0}
+.form-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.danger-btn{background:#fdecef;color:#c23552}
+@media(max-width:1150px){.live-notice{margin:12px 25px 0}}
+@media(max-width:620px){.live-notice{margin:10px 13px 0}.chat-layout{grid-template-columns:1fr}.chat-layout.thread-open .chat-list{display:none}.chat-layout:not(.thread-open) .chat-thread{display:none}.chat-back{display:inline-flex}.chat-list{border-right:0;max-height:none}.member-actions{margin-left:0}.chat-bubble{max-width:88%}}

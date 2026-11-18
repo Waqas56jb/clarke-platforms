@@ -1,49 +1,43 @@
 # Clarke Social — client
 
-React 18 + Vite conversion of the Clarke Social website. The look and the Posts & updates, Music and Movies
-sections come from `Clarke_Social_Movies_Enhanced_Preview(2).html`; the working screens (sign up, sign in, feed,
-uploads, comments, profile, discover, dating, calls, payments, settings) come from the Clarke Dating build's
-`public/` folder and talk to the server API.
+React 18 + Vite website for Clarke Social and Clarke Dating. Every screen is backed by the API in `../server`.
 
-## Run
+## Run locally
 
-Start the server first (see `../server/README.md`), then:
+Start the API first (see `../server/README.md`), then:
 
 ```bash
-cp .env.example .env      # optional: VITE_API_TARGET if the server is not on http://localhost:3000
+cp .env.example .env
 npm install
-npm run dev
+npm run dev        # http://localhost:5173 (proxies /api, /uploads and /socket.io to the API)
 ```
 
-Open http://localhost:5173. Vite proxies `/api`, `/uploads` and `/socket.io` to the server so cookies and Socket.IO
-behave as same-origin, exactly like the original single-server build.
+Scripts: `npm run dev`, `npm run build`, `npm run preview`, `npm run lint`, `npm run format`.
 
-| Script                              | Purpose                     |
-| ----------------------------------- | --------------------------- |
-| `npm run dev`                       | Dev server on port 5173     |
-| `npm run build` / `npm run preview` | Production build in `dist/` |
-| `npm run lint` / `npm run format`   | ESLint / Prettier           |
+## Production (Vercel)
+
+| Vercel variable | Where it is used |
+| --- | --- |
+| `BACKEND_ORIGIN` | `middleware.js` (server-side): the API host that `/api` requests are forwarded to |
+| `PROXY_SECRET` | `middleware.js` (server-side): must equal the API's `PROXY_SECRET` |
+| `VITE_BACKEND_ORIGIN` | Build time: uploads, media, signed file links and Socket.IO connect straight to this host |
+
+`middleware.js` is Vercel Routing Middleware. It forwards `/api/*` to the API and adds the proxy secret, so the
+session cookie stays on the website's domain.
 
 ## Structure
 
 ```
 src/
-  components/   layout (Sidebar, Topbar, MobileNav, RightColumn), feed (Composer, Feed, PostCard),
-                modals, CallStage, dating/, music/, movies/, posts/
-  pages/        one file per screen: FeedPage (home/videos/saved + preview sections), Discover, Dating,
-                DatingPremium, Messages, Calls, Profile, Settings, Premium, PostsUpdates, Music, Movies
-  hooks/        useSavedPosts (localStorage), useCheckout, usePaymentResult
-  services/     http helper + one file per API resource
-  context/      Auth, Navigation, Feed, Calls (Socket.IO + WebRTC), Toast
-  styles/       clarke.css (Dating build stylesheet, unchanged) + preview-sections.css (the preview's extra CSS, unchanged)
-  utils/
+  components/  layout, feed (Composer, Feed, PostCard, Stories, StoryViewer), modals, dating/, messages/,
+               music/, movies/, posts/, StateView (loading/empty/error)
+  pages/       Feed, Post, Member, Posts & updates, Music, Movies, Discover, Dating, Dating premium, Messages,
+               Calls, Profile, Settings, Premium
+  hooks/       useAsync, usePostList, usePostActions, useCheckout, useUrlActions
+  services/    http (CSRF, uploads, media URLs) + one file per API resource
+  context/     Auth, Navigation, Socket, Notifications, Calls, Comments, Toast
+  styles/      clarke.css + preview-sections.css (original design) + live-features.css (new screens, same tokens)
 ```
 
-The two stylesheets concatenated are byte-for-byte the preview's `<style>` block.
-
-## Behaviour notes
-
-- Posts & updates, Clarke Music and Clarke Movies are browser-only demos exactly as in the preview (no backend
-  exists for them): alerts, prompts, local audio audition, in-memory posts/watchlist.
-- Saved posts are kept in `localStorage` under `clarke_saved`, as before.
-- Payments redirect to Stripe Checkout and show a configuration error until the server has Stripe keys.
+Email links (`?verify=`, `?reset=`), WiPay returns (`?payment=`) and shared posts (`?post=`) are handled by
+`useUrlActions`.

@@ -10,27 +10,28 @@ import MoviesPage from './MoviesPage';
 import MusicPage from './MusicPage';
 import PostsUpdatesPage from './PostsUpdatesPage';
 
-const PREVIEW_PAGES = { posts: PostsUpdatesPage, music: MusicPage, movies: MoviesPage };
+const SECTIONS = { posts: PostsUpdatesPage, music: MusicPage, movies: MoviesPage };
 
-// Home, Videos and Saved, plus the preview sections that reuse the home layout around the feed list.
+// Home, Videos and Saved, plus the Posts, Music and Movies sections that share the home layout.
 export default function FeedPage({ view }) {
   const { user } = useAuth();
   const [sort, setSort] = useState('latest');
-  const PreviewSection = PREVIEW_PAGES[view];
+  const [version, setVersion] = useState(0);
+  const Section = SECTIONS[view];
   const showBanner = !user && (view === 'home' || PREVIEW_VIEWS.includes(view));
 
   return (
     <>
       {showBanner && <WelcomeBanner />}
       {showsStories(view) && <Stories />}
-      {showsComposer(view) && <Composer />}
+      {showsComposer(view) && <Composer onPosted={() => setVersion((v) => v + 1)} />}
       {showsFeedHeading(view) && <FeedHeading title={FEED_TITLES[view]} sort={sort} onSortChange={setSort} />}
-      {PreviewSection ? (
+      {Section ? (
         <div id="feed" className="feed-list">
-          <PreviewSection />
+          <Section sort={sort} version={version} />
         </div>
       ) : (
-        <Feed view={view} sort={sort} />
+        <Feed view={view} sort={sort} version={version} />
       )}
     </>
   );

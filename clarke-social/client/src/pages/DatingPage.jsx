@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigation } from '../context/NavigationContext';
+import { ErrorState } from '../components/StateView';
 import ViewHeading from '../components/ViewHeading';
 import DatingDiscover from '../components/dating/DatingDiscover';
 import DatingEditor from '../components/dating/DatingEditor';
 import DatingMatches from '../components/dating/DatingMatches';
 import { getDatingProfile } from '../services/datingService';
 
-export default function DatingPage() {
+export default function DatingPage({ params }) {
   const { showView } = useNavigation();
   // "key" remounts a tab so pressing it again reloads, like the original re-render.
   const [tab, setTab] = useState({ name: 'loading', key: 0 });
@@ -16,12 +17,17 @@ export default function DatingPage() {
 
   useEffect(() => {
     getDatingProfile()
-      .then(({ profile }) => setTab((t) => ({ name: profile ? 'discover' : 'editor', key: t.key + 1 })))
+      .then(({ profile }) =>
+        setTab((t) => ({
+          name: !profile ? 'editor' : params.tab === 'matches' ? 'matches' : 'discover',
+          key: t.key + 1,
+        }))
+      )
       .catch((e) => setError(e.message));
-  }, []);
+  }, [params.tab]);
 
   let content;
-  if (error) content = <div className="empty-state">{error}</div>;
+  if (error) content = <ErrorState message={error} onRetry={() => window.location.reload()} />;
   else if (tab.name === 'loading') content = <div className="loading-card">Loading dating profiles…</div>;
   else if (tab.name === 'editor') content = <DatingEditor key={tab.key} onSaved={() => open('discover')} />;
   else if (tab.name === 'matches') content = <DatingMatches key={tab.key} />;

@@ -4,29 +4,44 @@ import { AUTH_REQUIRED_VIEWS } from '../utils/views';
 
 const NavigationContext = createContext(null);
 
+// Auth modal modes: login, register, forgot, reset (with token), checkEmail (after sign-up).
 export function NavigationProvider({ children }) {
   const { user } = useAuth();
-  const [view, setView] = useState('home');
+  const [route, setRoute] = useState({ view: 'home', params: {} });
   const [authModal, setAuthModal] = useState({ open: false, mode: 'login' });
 
-  const openAuth = useCallback((mode = 'login') => setAuthModal({ open: true, mode }), []);
+  const openAuth = useCallback((mode = 'login', extra = {}) => setAuthModal({ open: true, mode, ...extra }), []);
   const closeAuth = useCallback(() => setAuthModal((m) => ({ ...m, open: false })), []);
   const setAuthMode = useCallback((mode) => setAuthModal((m) => ({ ...m, mode })), []);
 
+  const navigate = useCallback((view, params = {}) => {
+    setRoute({ view, params });
+    window.scrollTo({ top: 0 });
+  }, []);
+
   const showView = useCallback(
-    (next) => {
-      if (AUTH_REQUIRED_VIEWS.includes(next) && !user) {
+    (view, params) => {
+      if (AUTH_REQUIRED_VIEWS.includes(view) && !user) {
         openAuth();
         return;
       }
-      setView(next);
+      navigate(view, params);
     },
-    [user, openAuth]
+    [user, openAuth, navigate]
   );
 
   return (
     <NavigationContext.Provider
-      value={{ view, showView, navigate: setView, authModal, openAuth, closeAuth, setAuthMode }}
+      value={{
+        view: route.view,
+        params: route.params,
+        showView,
+        navigate,
+        authModal,
+        openAuth,
+        closeAuth,
+        setAuthMode,
+      }}
     >
       {children}
     </NavigationContext.Provider>

@@ -1,5 +1,5 @@
 import { useAuth } from '../context/AuthContext';
-import { initials } from '../utils/format';
+import Avatar from './Avatar';
 
 export default function SideProfile() {
   const { user } = useAuth();
@@ -7,7 +7,7 @@ export default function SideProfile() {
     <div className="side-profile" id="sideProfile">
       {user ? (
         <>
-          <div className="avatar avatar-blue">{initials(user.displayName)}</div>
+          <Avatar src={user.avatar} name={user.displayName} color="avatar-blue" />
           <div>
             <b>{user.displayName}</b>
             <small>@{user.username}</small>

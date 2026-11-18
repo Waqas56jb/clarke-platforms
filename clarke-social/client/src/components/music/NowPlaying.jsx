@@ -1,45 +1,31 @@
 import { useEffect, useRef, useState } from 'react';
+import { mediaUrl } from '../../services/http';
 import { formatSeconds } from '../../utils/format';
 
-export default function NowPlaying({ track }) {
+// Plays `queue[index]`; previous/next move through the queue.
+export default function NowPlaying({ queue, index, onIndexChange }) {
   const audioRef = useRef(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState({ current: 0, duration: 0 });
-  const [shownTrack, setShownTrack] = useState(track);
-
-  // A newly chosen track starts playing and flips the button to pause, as in the original.
-  if (track !== shownTrack) {
-    setShownTrack(track);
-    if (track?.src) setPlaying(true);
-  }
+  const track = queue[index];
 
   useEffect(() => {
     const audio = audioRef.current;
-    if (!track?.src) return;
-    audio.src = track.src;
+    if (!track) return;
+    audio.src = mediaUrl(track.audioUrl);
     audio.play().catch(() => {});
   }, [track]);
 
-  useEffect(() => () => track?.src && URL.revokeObjectURL(track.src), [track]);
-
   const onPlay = () => {
     const audio = audioRef.current;
-    if (!audio.src) {
-      alert('Choose a local audio file first, or select an approved catalogue track.');
-      return;
-    }
-    if (audio.paused) {
-      audio.play();
-      setPlaying(true);
-    } else {
-      audio.pause();
-      setPlaying(false);
-    }
+    if (!track) return;
+    if (audio.paused) audio.play().catch(() => {});
+    else audio.pause();
   };
 
-  const onTimeUpdate = () => {
-    const audio = audioRef.current;
-    setTime({ current: audio.currentTime || 0, duration: audio.duration || 0 });
+  const move = (step) => {
+    if (!queue.length) return;
+    onIndexChange((index + step + queue.length) % queue.length);
   };
 
   const onSeek = (e) => {
@@ -56,26 +42,27 @@ export default function NowPlaying({ track }) {
       </div>
       <span className="eyebrow">NOW PLAYING</span>
       <h3 id="musicNowTitle">{track?.title || 'Choose a track'}</h3>
-      <p id="musicNowArtist">{track?.artist || 'Your Clarke listening room'}</p>
+      <p id="musicNowArtist">
+        {track ? `${track.artist} · uploaded by ${track.ownerName}` : 'Your Clarke listening room'}
+      </p>
       <audio
         id="clarkeAudio"
         ref={audioRef}
         controls
         style={{ width: '100%', height: 35, filter: 'invert(1) hue-rotate(180deg)', marginTop: 8 }}
-        onTimeUpdate={onTimeUpdate}
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => move(1)}
+        onTimeUpdate={(e) => setTime({ current: e.target.currentTime || 0, duration: e.target.duration || 0 })}
       ></audio>
       <div className="music-controls">
-        <button id="musicPrev" title="Previous" onClick={() => (audioRef.current.currentTime = 0)}>
+        <button id="musicPrev" title="Previous" onClick={() => move(-1)} disabled={!track}>
           |◀
         </button>
-        <button className="play-main" id="musicPlay" title="Play or pause" onClick={onPlay}>
+        <button className="play-main" id="musicPlay" title="Play or pause" onClick={onPlay} disabled={!track}>
           {playing ? 'Ⅱ' : '▶'}
         </button>
-        <button
-          id="musicNext"
-          title="Next"
-          onClick={() => alert('Queue controls connect to the approved music catalogue in production.')}
-        >
+        <button id="musicNext" title="Next" onClick={() => move(1)} disabled={!track}>
           ▶|
         </button>
       </div>
@@ -94,8 +81,7 @@ export default function NowPlaying({ track }) {
         onChange={onSeek}
       />
       <p className="music-status" style={{ color: '#c5d5f2' }}>
-        High-quality playback interface preview. Select an audio file in the upload panel to audition it locally; this
-        preview does not publish or store music.
+        {track ? `${index + 1} of ${queue.length} in this queue.` : 'Pick a track or playlist to start listening.'}
       </p>
     </section>
   );

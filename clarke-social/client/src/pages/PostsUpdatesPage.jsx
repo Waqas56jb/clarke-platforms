@@ -1,68 +1,67 @@
-// "Posts & updates" demo from the Movies preview. Posts live in memory only; there is no backend for it.
+// Posts & updates: short text posts (280 characters) with likes, replies, reposts and shares.
 import { useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '../context/NavigationContext';
+import { useToast } from '../context/ToastContext';
+import Avatar from '../components/Avatar';
 import MicroPost from '../components/posts/MicroPost';
+import { EmptyState, ErrorState, Loading } from '../components/StateView';
+import { usePostActions } from '../hooks/usePostActions';
+import { usePostList } from '../hooks/usePostList';
+import { createTextPost, listPosts } from '../services/postsService';
 
-const INITIAL_POSTS = [
-  {
-    id: 1,
-    name: 'Maya Lewis',
-    handle: '@mayacreates',
-    time: '12 min',
-    text: 'A new day, a fresh perspective. What is one thing you are looking forward to today? ✨',
-    likes: 24,
-    replies: ['Looking forward to creating something new!'],
-  },
-  {
-    id: 2,
-    name: 'Jordan Blake',
-    handle: '@jordanb',
-    time: '38 min',
-    text: 'Grenada sunsets never get old. Share a photo from your corner of the world! 🌅',
-    likes: 17,
-    replies: [],
-  },
-  {
-    id: 3,
-    name: 'Clarke Community',
-    handle: '@clarke',
-    time: '1 hr',
-    text: 'Welcome to Clarke — a place to share ideas, meet people and join the conversation. #ClarkeCommunity',
-    likes: 42,
-    replies: [],
-  },
-];
-
-export default function PostsUpdatesPage() {
-  const [posts, setPosts] = useState(INITIAL_POSTS);
+export default function PostsUpdatesPage({ sort }) {
+  const { user } = useAuth();
+  const { openAuth } = useNavigation();
+  const toast = useToast();
   const [text, setText] = useState('');
-  // The original preview only draws the post list after the first submission; kept as-is.
-  const [listShown, setListShown] = useState(false);
+  const [posting, setPosting] = useState(false);
+  const list = usePostList(() => listPosts({ view: 'updates', sort }).then((d) => d.posts), [sort, user?.id]);
+  const actions = usePostActions(list.update, list.remove);
 
-  const update = (i, change) => setPosts((all) => all.map((p, idx) => (idx === i ? { ...p, ...change(p) } : p)));
-
-  const onSubmit = (e) => {
+  const onSubmit = async (e) => {
     e.preventDefault();
+    if (!user) return openAuth();
     const v = text.trim();
     if (!v) return;
-    setPosts((all) => [
-      { id: Date.now(), name: 'You', handle: '@you', time: 'just now', text: v, likes: 0, replies: [] },
-      ...all,
-    ]);
-    setText('');
-    setListShown(true);
+    setPosting(true);
+    try {
+      const { post } = await createTextPost({ body: v });
+      list.setData((posts) => [post, ...(posts || [])]);
+      setText('');
+    } catch (err) {
+      toast(err.message);
+    } finally {
+      setPosting(false);
+    }
   };
 
-  const onShare = (i) => {
-    const postText = posts[i].text;
-    if (navigator.clipboard?.writeText) navigator.clipboard.writeText(postText).then(() => alert('Post text copied.'));
-    else alert(postText);
+  // A repost appears as a new update, so reload the list after reposting.
+  const repost = async (p) => {
+    await actions.repost(p);
+    list.reload();
   };
+
+  let content;
+  if (list.loading && !list.data) content = <Loading text="Loading updates…" />;
+  else if (list.error && !list.data) content = <ErrorState message={list.error} onRetry={list.reload} />;
+  else if (!list.data.length) content = <EmptyState title="No updates yet">Be the first to post an update.</EmptyState>;
+  else
+    content = list.data.map((p, i) => (
+      <MicroPost
+        key={p.id}
+        post={p}
+        index={i}
+        actions={{ ...actions, repost }}
+        onReplied={(id) => list.update(id, (x) => ({ comments: x.comments + 1 }))}
+      />
+    ));
 
   return (
     <>
       <section className="card-panel post-composer">
         <div className="person-row">
-          <div className="avatar avatar-blue">C</div>
+          <Avatar src={user?.avatar} name={user?.displayName || 'C'} color="avatar-blue" />
           <div className="person-info">
             <b>What&apos;s happening?</b>
             <small>Share a thought with the Clarke community</small>
@@ -78,7 +77,7 @@ export default function PostsUpdatesPage() {
           ></textarea>
           <div className="post-composer-foot">
             <span id="microCount">{text.length} / 280</span>
-            <button className="btn btn-primary" type="submit">
+            <button className="btn btn-primary" type="submit" disabled={posting}>
               Post ↗
             </button>
           </div>
@@ -90,20 +89,7 @@ export default function PostsUpdatesPage() {
         <span>#YourVoice</span>
         <span>Public conversation</span>
       </div>
-      <div id="microFeed">
-        {listShown &&
-          posts.map((p, i) => (
-            <MicroPost
-              key={p.id}
-              post={p}
-              index={i}
-              onLike={(idx) => update(idx, (x) => ({ liked: !x.liked, likes: x.likes + (x.liked ? -1 : 1) }))}
-              onRepost={(idx) => update(idx, (x) => ({ reposted: !x.reposted }))}
-              onShare={onShare}
-              onReply={(idx, v) => update(idx, (x) => ({ replies: [...x.replies, v] }))}
-            />
-          ))}
-      </div>
+      <div id="microFeed">{content}</div>
     </>
   );
 }

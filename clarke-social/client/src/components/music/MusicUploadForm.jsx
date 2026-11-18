@@ -1,20 +1,42 @@
-export default function MusicUploadForm({ onAudition }) {
-  const onFileChange = (e) => {
-    const f = e.target.files[0];
-    if (f && f.type.startsWith('audio/'))
-      onAudition({
-        title: f.name.replace(/\.[^.]+$/, ''),
-        artist: 'Local preview · Not uploaded',
-        src: URL.createObjectURL(f),
-      });
-  };
+import { useState } from 'react';
+import { useAuth } from '../../context/AuthContext';
+import { useNavigation } from '../../context/NavigationContext';
+import { useToast } from '../../context/ToastContext';
+import { uploadTrack } from '../../services/musicService';
 
-  const onSubmit = (e) => {
+export default function MusicUploadForm({ onUploaded }) {
+  const { user } = useAuth();
+  const { openAuth } = useNavigation();
+  const toast = useToast();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+
+  const onSubmit = async (e) => {
     e.preventDefault();
-    if (!e.currentTarget.elements.musicDeclaration.checked) return;
-    alert(
-      'Submission captured in this preview only. In production it must be uploaded securely, scanned, rights-checked and approved by a Clarke reviewer before anyone can stream it.'
-    );
+    if (!user) return openAuth();
+    const form = e.currentTarget;
+    const el = form.elements;
+    setError('');
+    setBusy(true);
+    try {
+      await uploadTrack(
+        {
+          title: el.musicTitle.value,
+          artist: el.musicArtist.value,
+          rights: el.musicRights.value,
+          declaration: el.musicDeclaration.checked ? 'true' : 'false',
+        },
+        el.musicAudio.files[0],
+        el.musicProof.files[0]
+      );
+      form.reset();
+      toast('Your track is published in Clarke Music.');
+      onUploaded();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -24,7 +46,7 @@ export default function MusicUploadForm({ onAudition }) {
           <h3>Upload your music</h3>
           <small>Artist and label submission studio</small>
         </div>
-        <span className="music-chip">RIGHTS REVIEW</span>
+        <span className="music-chip">RIGHTS DECLARATION</span>
       </div>
       <form id="musicUploadForm" onSubmit={onSubmit}>
         <label htmlFor="musicTitle">Track title</label>
@@ -43,26 +65,24 @@ export default function MusicUploadForm({ onAudition }) {
           type="file"
           accept="audio/mpeg,audio/mp3,audio/wav,audio/flac,audio/aac,audio/ogg,audio/mp4"
           required
-          onChange={onFileChange}
         />
         <label htmlFor="musicProof">Licence / ownership evidence (PDF, image or agreement)</label>
         <input id="musicProof" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp,.doc,.docx" />
         <label className="rights-check">
-          <input type="checkbox" id="musicDeclaration" name="musicDeclaration" required />
+          <input type="checkbox" id="musicDeclaration" required />
           <span>
             I confirm I own the music or hold all permissions required to upload, stream, distribute and monetise this
-            recording on Clarke. I understand submissions are reviewed and may be rejected or removed if rights cannot
-            be verified.
+            recording on Clarke. I understand tracks can be reported and will be removed if rights cannot be verified.
           </span>
         </label>
-        <button className="btn btn-primary" type="submit" style={{ marginTop: 12 }}>
-          Submit for rights review ↗
+        {error && <p className="inline-error">{error}</p>}
+        <button className="btn btn-primary" type="submit" style={{ marginTop: 12 }} disabled={busy}>
+          {busy ? 'Uploading…' : 'Publish track ↗'}
         </button>
       </form>
       <p className="music-status">
-        Uploads remain private and pending review until approved. A licence to use a beat or sample may not grant every
-        right needed for streaming, downloads, videos or monetisation. Clarke must verify the relevant composition and
-        sound-recording rights before publication.
+        Evidence files are kept private and are only used if a track&apos;s rights are questioned. A licence to use a
+        beat or sample may not grant every right needed for streaming, downloads, videos or monetisation.
       </p>
     </div>
   );

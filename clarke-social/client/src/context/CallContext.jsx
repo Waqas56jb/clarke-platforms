@@ -1,63 +1,103 @@
-// One-to-one WebRTC calls. For reliable production use, configure TURN and a group-call SFU.
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { io } from 'socket.io-client';
+// One-to-one WebRTC calls. Signalling goes over the member's direct Socket.IO connection; media flows
+// peer-to-peer, relayed through TURN when the server provides TURN credentials.
+import { createContext, useCallback, useContext, useRef, useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useToast } from './ToastContext';
 import { useNavigation } from './NavigationContext';
+import { useSocket, useSocketEvent } from './SocketContext';
 import { iceConfig } from '../services/callsService';
 
 const CallContext = createContext(null);
 
-// Vercel rewrites cannot proxy WebSockets, so builds served from Vercel use HTTP long-polling only.
-const SOCKET_OPTIONS = import.meta.env.VITE_SOCKET_POLLING_ONLY === 'true' ? { transports: ['polling'] } : {};
+const CAMERA_UNAVAILABLE = new Set(['NotFoundError', 'NotReadableError', 'OverconstrainedError']);
+
+// Video calls continue with audio only when the device has no usable camera.
+async function openMedia(type, toast) {
+  try {
+    return await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
+  } catch (err) {
+    if (type !== 'video' || !CAMERA_UNAVAILABLE.has(err.name)) throw mediaError(err);
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true }).catch((e) => {
+      throw mediaError(e);
+    });
+    toast('No camera is available, so you joined with audio only.');
+    return stream;
+  }
+}
+
+function mediaError(err) {
+  if (err.name === 'NotAllowedError')
+    return new Error('Allow microphone (and camera for video) access in your browser settings to make calls.');
+  if (err.name === 'NotFoundError') return new Error('No microphone was found on this device.');
+  return err;
+}
+
+async function addIce(peer, candidate) {
+  try {
+    await peer.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch {
+    // Late or duplicate candidates are expected and safe to ignore.
+  }
+}
 
 export function CallProvider({ children }) {
   const { user } = useAuth();
   const toast = useToast();
   const { navigate } = useNavigation();
-  const socketRef = useRef(null);
+  const socket = useSocket();
   const peerRef = useRef(null);
+  const localStreamRef = useRef(null);
   const callRef = useRef({ peer: null, callId: null });
-  const rtcConfig = useRef({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+  // ICE candidates that arrive before the remote description is set are queued, not dropped.
+  const pendingIceRef = useRef([]);
   const [stage, setStage] = useState(null);
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
-  const localStreamRef = useRef(null);
 
-  useEffect(() => {
-    iceConfig()
-      .then(({ iceServers }) => {
-        rtcConfig.current.iceServers = iceServers;
-      })
-      .catch(() => {});
-  }, []);
+  const endCall = useCallback(
+    (notify = true) => {
+      const { peer, callId } = callRef.current;
+      if (notify && socket && peer) socket.emit('call:end', { to: peer, callId });
+      peerRef.current?.close();
+      localStreamRef.current?.getTracks().forEach((t) => t.stop());
+      peerRef.current = null;
+      localStreamRef.current = null;
+      pendingIceRef.current = [];
+      callRef.current = { peer: null, callId: null };
+      setLocalStream(null);
+      setRemoteStream(null);
+      setStage(null);
+    },
+    [socket]
+  );
 
-  const endCall = useCallback((notify = true) => {
-    const { peer, callId } = callRef.current;
-    if (notify && socketRef.current && peer) socketRef.current.emit('call:end', { to: peer, callId });
-    peerRef.current?.close();
-    localStreamRef.current?.getTracks().forEach((t) => t.stop());
-    peerRef.current = null;
-    localStreamRef.current = null;
-    callRef.current = { peer: null, callId: null };
-    setLocalStream(null);
-    setRemoteStream(null);
-    setStage(null);
-  }, []);
+  const createPeer = useCallback(
+    async (to, callId, type) => {
+      callRef.current = { peer: to, callId };
+      const { iceServers } = await iceConfig();
+      const stream = await openMedia(type, toast);
+      localStreamRef.current = stream;
+      setLocalStream(stream);
+      const peer = new RTCPeerConnection({ iceServers });
+      peerRef.current = peer;
+      stream.getTracks().forEach((t) => peer.addTrack(t, stream));
+      peer.onicecandidate = (e) => {
+        if (e.candidate) socket.emit('call:ice', { to, candidate: e.candidate, callId });
+      };
+      peer.ontrack = (e) => setRemoteStream(e.streams[0]);
+      peer.onconnectionstatechange = () => {
+        if (peer.connectionState === 'connected') setStage((s) => s && { ...s, status: 'Connected' });
+        if (peer.connectionState === 'failed') toast('Call connection ended or lost.');
+      };
+      return peer;
+    },
+    [socket, toast]
+  );
 
-  const createPeer = useCallback(async (to, callId, type) => {
-    callRef.current = { peer: to, callId };
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: type === 'video' });
-    localStreamRef.current = stream;
-    setLocalStream(stream);
-    const peer = new RTCPeerConnection(rtcConfig.current);
-    peerRef.current = peer;
-    stream.getTracks().forEach((t) => peer.addTrack(t, stream));
-    peer.onicecandidate = (e) => {
-      if (e.candidate) socketRef.current.emit('call:ice', { to, candidate: e.candidate, callId });
-    };
-    peer.ontrack = (e) => setRemoteStream(e.streams[0]);
-    return peer;
+  const flushPendingIce = useCallback(async (peer) => {
+    const queued = pendingIceRef.current;
+    pendingIceRef.current = [];
+    for (const candidate of queued) await addIce(peer, candidate);
   }, []);
 
   const acceptCall = useCallback(
@@ -65,79 +105,72 @@ export function CallProvider({ children }) {
       try {
         const peer = await createPeer(data.from, data.callId, data.callType);
         await peer.setRemoteDescription(new RTCSessionDescription(data.offer));
+        await flushPendingIce(peer);
         const answer = await peer.createAnswer();
         await peer.setLocalDescription(answer);
-        socketRef.current.emit('call:answer', { to: data.from, answer, callId: data.callId });
+        socket.emit('call:answer', { to: data.from, answer, callId: data.callId });
         navigate('calls');
-        setStage({ type: data.callType, status: 'Connected' });
+        setStage({ type: data.callType, status: 'Connecting…', peerName: data.displayName || data.username });
       } catch (e) {
+        socket.emit('call:decline', { to: data.from, callId: data.callId });
+        endCall(false);
         toast(e.message || 'Could not answer call.');
       }
     },
-    [createPeer, navigate, toast]
+    [createPeer, flushPendingIce, socket, navigate, toast, endCall]
   );
 
-  const userId = user?.id;
-  useEffect(() => {
-    if (!userId) return undefined;
-    const socket = io(SOCKET_OPTIONS);
-    socketRef.current = socket;
-    socket.on('connect_error', () => {});
-    socket.on('call:error', (d) => {
-      toast(d.message || 'Call could not be started.');
-      endCall(false);
-    });
-    socket.on('call:ringing', (d) => {
-      callRef.current.callId = d.callId;
-    });
-    socket.on('call:incoming', async (data) => {
-      const accept = window.confirm(`${data.username} is calling you (${data.callType}). Accept?`);
-      if (accept) await acceptCall(data);
-      else socket.emit('call:decline', { to: data.from, callId: data.callId });
-    });
-    socket.on('call:answered', async (d) => {
-      if (peerRef.current && d.answer) await peerRef.current.setRemoteDescription(new RTCSessionDescription(d.answer));
-    });
-    socket.on('call:ice', async (d) => {
-      if (peerRef.current && d.candidate) {
-        try {
-          await peerRef.current.addIceCandidate(new RTCIceCandidate(d.candidate));
-        } catch {
-          // Late or duplicate candidates are expected and safe to ignore.
-        }
-      }
-    });
-    socket.on('call:ended', () => endCall(false));
-    socket.on('call:declined', () => {
-      toast('Call declined.');
-      endCall(false);
-    });
-    return () => {
-      socket.disconnect();
-      socketRef.current = null;
-    };
-  }, [userId, acceptCall, endCall, toast]);
+  useSocketEvent('call:error', (d) => {
+    toast(d.message || 'Call could not be started.');
+    endCall(false);
+  });
+  useSocketEvent('call:incoming', async (data) => {
+    pendingIceRef.current = [];
+    const name = data.displayName || data.username;
+    if (window.confirm(`${name} is calling you (${data.callType}). Accept?`)) await acceptCall(data);
+    else socket.emit('call:decline', { to: data.from, callId: data.callId });
+  });
+  useSocketEvent('call:answered', async (d) => {
+    const peer = peerRef.current;
+    if (!peer || !d.answer) return;
+    await peer.setRemoteDescription(new RTCSessionDescription(d.answer));
+    await flushPendingIce(peer);
+  });
+  useSocketEvent('call:ice', async (d) => {
+    if (!d.candidate || (d.callId !== callRef.current.callId && callRef.current.callId)) return;
+    const peer = peerRef.current;
+    if (!peer?.remoteDescription) {
+      pendingIceRef.current.push(d.candidate);
+      return;
+    }
+    await addIce(peer, d.candidate);
+  });
+  useSocketEvent('call:ended', () => {
+    toast('The call has ended.');
+    endCall(false);
+  });
+  useSocketEvent('call:declined', () => {
+    toast('Call declined.');
+    endCall(false);
+  });
 
   const startCall = useCallback(
-    async (type, to) => {
-      if (!socketRef.current?.connected) return toast('Call signalling is not connected. Sign in again.');
-      if (!to || to === userId) return toast('Enter another member account ID.');
+    async (type, to, peerName) => {
+      if (!socket?.connected) return toast('Calling is reconnecting. Please try again in a moment.');
+      if (!to || to === user?.id) return toast('Enter another member account ID.');
       try {
         const callId = crypto.randomUUID();
         const peer = await createPeer(to, callId, type);
-        peer.onconnectionstatechange = () => {
-          if (['failed', 'disconnected', 'closed'].includes(peerRef.current?.connectionState))
-            toast('Call connection ended or lost.');
-        };
         const offer = await peer.createOffer();
         await peer.setLocalDescription(offer);
-        socketRef.current.emit('call:invite', { to, offer, callType: type, callId });
-        setStage({ type, status: 'Calling…' });
+        socket.emit('call:invite', { to, offer, callType: type, callId });
+        setStage({ type, status: 'Calling…', peerName });
       } catch (e) {
+        endCall(false);
         toast(e.message || 'Could not access your camera or microphone.');
       }
     },
-    [createPeer, toast, userId]
+    [createPeer, socket, toast, user, endCall]
   );
 
   return (

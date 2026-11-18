@@ -1,20 +1,17 @@
-// Clarke Movies demo catalogue from the Movies preview. Browser-only; no streaming backend exists.
-import { useState } from 'react';
+// Clarke Movies: member-uploaded films with watchlist, ratings, free viewing and WiPay rentals.
+import { useRef, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { useNavigation } from '../context/NavigationContext';
+import { useToast } from '../context/ToastContext';
 import MovieCard from '../components/movies/MovieCard';
-
-const MOVIES = [
-  ['The Last Horizon', 'Sci-Fi', 'Original', 'Clarke Original', '8.8'],
-  ['Island of Secrets', 'Drama', 'Rent', 'New release', '8.5'],
-  ['Laugh Out Loud', 'Comedy', 'Free', 'Community pick', '8.1'],
-  ['Deep Blue Mission', 'Action', 'Rent', '4K UHD', '8.7'],
-  ['Wild Earth', 'Documentary', 'Free', 'Documentary', '9.1'],
-  ['The Family Quest', 'Family', 'Rent', 'Family night', '8.3'],
-  ['City After Dark', 'Drama', 'Original', 'Clarke Original', '8.4'],
-  ['Beyond Tomorrow', 'Sci-Fi', 'Rent', 'Coming soon', '8.9'],
-];
+import MoviePlayer from '../components/movies/MoviePlayer';
+import MovieUploadModal from '../components/movies/MovieUploadModal';
+import { ErrorState, Loading } from '../components/StateView';
+import { useAsync } from '../hooks/useAsync';
+import { useCheckout } from '../hooks/useCheckout';
+import { deleteMovie, listMovies, playLink, reportMovie, toggleWatchlist } from '../services/moviesService';
 
 const GENRES = ['Action', 'Comedy', 'Drama', 'Documentary', 'Family', 'Sci-Fi'];
-
 const FILTERS = [
   ['all', 'All films'],
   ['free', 'Free to watch'],
@@ -23,41 +20,79 @@ const FILTERS = [
   ['saved', 'My watchlist'],
 ];
 
-const EXTRAS = [
-  ['party', '👥 Watch Party'],
-  ['downloads', '⬇ Offline downloads'],
-  ['kids', '🧒 Kids profiles & PIN'],
-  ['subtitles', 'CC Subtitles & audio'],
-  ['premiere', '⭐ Premieres & live events'],
-  ['creator', '🎥 Creator studio'],
-];
-
-const ACCESS_BY_FILTER = { free: 'Free', rent: 'Rent', original: 'Original' };
-
 export default function MoviesPage() {
+  const { user } = useAuth();
+  const { openAuth } = useNavigation();
+  const toast = useToast();
+  const checkout = useCheckout();
+  const gridRef = useRef(null);
   const [query, setQuery] = useState('');
   const [genre, setGenre] = useState('all');
   const [sort, setSort] = useState('featured');
   const [filter, setFilter] = useState('all');
-  const [saved, setSaved] = useState(() => new Set());
+  const [player, setPlayer] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const movies = useAsync(() => listMovies().then((d) => d.movies), [user?.id]);
 
-  const toggleSave = (title) =>
-    setSaved((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) next.delete(title);
-      else next.add(title);
-      return next;
-    });
+  const patch = (updated) =>
+    movies.setData((list) => list.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
+
+  const signedIn = (fn) => async (m) => {
+    if (!user) return openAuth();
+    try {
+      await fn(m);
+    } catch (e) {
+      toast(e.message);
+    }
+  };
+
+  const actions = {
+    watchlist: signedIn(async (m) => patch({ id: m.id, ...(await toggleWatchlist(m.id)) })),
+    watch: signedIn(async (m) => setPlayer({ movie: m, src: (await playLink(m.id)).url, kind: 'film' })),
+    rent: signedIn((m) => checkout({ plan: 'movie_rental', movieId: m.id })),
+    remove: signedIn(async (m) => {
+      if (!window.confirm(`Delete “${m.title}”?`)) return;
+      await deleteMovie(m.id);
+      movies.reload();
+    }),
+    report: signedIn(async (m) => {
+      const reason = window.prompt('Why are you reporting this film?');
+      if (!reason) return;
+      await reportMovie(m.id, reason);
+      toast('Thank you. Your report has been submitted for review.');
+    }),
+  };
 
   const q = query.toLowerCase();
-  const list = MOVIES.filter(
+  const list = (movies.data || []).filter(
     (m) =>
-      `${m[0]} ${m[1]} ${m[3]}`.toLowerCase().includes(q) &&
-      (genre === 'all' || m[1] === genre) &&
-      (filter === 'all' || (filter === 'saved' ? saved.has(m[0]) : m[2] === ACCESS_BY_FILTER[filter]))
+      `${m.title} ${m.genre} ${m.label} ${m.description}`.toLowerCase().includes(q) &&
+      (genre === 'all' || m.genre === genre) &&
+      (filter === 'all' || (filter === 'saved' ? m.inWatchlist : m.access === filter))
   );
-  if (sort === 'az') list.sort((a, b) => a[0].localeCompare(b[0]));
-  if (sort === 'rating') list.sort((a, b) => Number(b[4]) - Number(a[4]));
+  if (sort === 'az') list.sort((a, b) => a.title.localeCompare(b.title));
+  if (sort === 'rating') list.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+
+  let grid;
+  if (movies.loading && !movies.data) grid = <Loading text="Loading films…" />;
+  else if (movies.error) grid = <ErrorState message={movies.error} onRetry={movies.reload} />;
+  else if (!movies.data.length)
+    grid = <p>No films have been published yet. Creators can add the first one with Creator studio below.</p>;
+  else if (!list.length) grid = <p>No films match your search.</p>;
+  else
+    grid = list.map((m) => (
+      <MovieCard
+        key={m.id}
+        movie={m}
+        mine={m.ownerId === user?.id}
+        onTrailer={() => setPlayer({ movie: m, src: m.trailerUrl, kind: 'trailer' })}
+        onWatchlist={() => actions.watchlist(m)}
+        onWatch={() => actions.watch(m)}
+        onRent={() => actions.rent(m)}
+        onDelete={() => actions.remove(m)}
+        onReport={() => actions.report(m)}
+      />
+    ));
 
   return (
     <>
@@ -68,7 +103,11 @@ export default function MoviesPage() {
           <p>
             Discover films, watch trailers, rent new releases, build a watchlist and enjoy cinema nights with friends.
           </p>
-          <button className="btn btn-white" id="movieBrowse">
+          <button
+            className="btn btn-white"
+            id="movieBrowse"
+            onClick={() => gridRef.current?.scrollIntoView({ behavior: 'smooth' })}
+          >
             Browse films ↓
           </button>
         </div>
@@ -88,7 +127,7 @@ export default function MoviesPage() {
           ))}
         </select>
         <select id="movieSort" value={sort} onChange={(e) => setSort(e.target.value)}>
-          <option value="featured">Featured</option>
+          <option value="featured">Newest</option>
           <option value="az">A–Z</option>
           <option value="rating">Top rated</option>
         </select>
@@ -103,45 +142,48 @@ export default function MoviesPage() {
       <div className="section-heading">
         <div>
           <h2>Featured for you</h2>
-          <p>Films and series selected for Clarke members</p>
+          <p>Films and series published by Clarke creators</p>
         </div>
-        <span className="eyebrow" style={{ color: '#155eef' }}>
-          DEMO CATALOG
-        </span>
       </div>
-      <div className="movie-grid" id="movieGrid">
-        {list.length ? (
-          list.map((m) => <MovieCard key={m[0]} movie={m} saved={saved.has(m[0])} onToggleSave={toggleSave} />)
-        ) : (
-          <p>No films match your search.</p>
-        )}
+      <div className="movie-grid" id="movieGrid" ref={gridRef}>
+        {grid}
       </div>
       <section className="card-panel" style={{ padding: 18, marginTop: 18 }}>
         <div className="section-heading">
           <div>
             <h3>More ways to watch</h3>
-            <p>Build a complete movie-night experience</p>
+            <p>Publish your own films to the Clarke community</p>
           </div>
         </div>
         <div className="movie-row">
-          {EXTRAS.map(([key, label]) => (
-            <button
-              key={key}
-              className="movie-chip"
-              onClick={() =>
-                alert(`${key} feature added to the Clarke Movies roadmap. Production setup is still required.`)
-              }
-            >
-              {label}
-            </button>
-          ))}
+          <button className="movie-chip" onClick={() => (user ? setUploading(true) : openAuth())}>
+            🎥 Creator studio
+          </button>
         </div>
         <p className="movie-note">
-          This is a browser preview. Playback, rentals, subscriptions, offline downloads, watch parties and account
-          syncing require the production streaming backend, licensed video files, payment setup and secure video
-          delivery.
+          Rentals are paid securely through WiPay and give 48 hours of viewing. Full films stream only to members with
+          access.
         </p>
       </section>
+      {player && (
+        <MoviePlayer
+          movie={player.movie}
+          src={player.src}
+          kind={player.kind}
+          onClose={() => setPlayer(null)}
+          onRated={patch}
+        />
+      )}
+      {uploading && (
+        <MovieUploadModal
+          onClose={() => setUploading(false)}
+          onUploaded={() => {
+            setUploading(false);
+            toast('Your film is published.');
+            movies.reload();
+          }}
+        />
+      )}
     </>
   );
 }

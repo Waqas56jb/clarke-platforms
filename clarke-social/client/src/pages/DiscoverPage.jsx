@@ -1,74 +1,97 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
 import { useToast } from '../context/ToastContext';
+import Avatar from '../components/Avatar';
+import PostCard from '../components/PostCard';
+import { ErrorState, Loading } from '../components/StateView';
 import ViewHeading from '../components/ViewHeading';
-import { searchUsers, toggleFollow } from '../services/usersService';
-import { initials } from '../utils/format';
+import { useAsync } from '../hooks/useAsync';
+import { usePostActions } from '../hooks/usePostActions';
+import { searchAll, searchUsers, toggleFollow } from '../services/usersService';
 
-export default function DiscoverPage() {
+// Members (all members when the box is empty) and, for a search, matching posts and hashtags.
+export default function DiscoverPage({ params }) {
   const { user } = useAuth();
-  const { openAuth } = useNavigation();
+  const { openAuth, navigate } = useNavigation();
   const toast = useToast();
-  const [users, setUsers] = useState([]);
-  const [following, setFollowing] = useState({});
-
-  // A failed search keeps the last results on screen.
-  const search = useCallback(
-    (q) =>
-      searchUsers(q)
-        .then((data) => setUsers(data.users))
-        .catch(() => {}),
-    []
+  const [q, setQ] = useState(params.q || '');
+  const state = useAsync(
+    () => (q.trim() ? searchAll(q.trim()) : searchUsers('').then((d) => ({ users: d.users, posts: [] }))),
+    [q, user?.id]
   );
 
-  useEffect(() => {
-    search('');
-  }, [search]);
+  const setUsers = (fn) => state.setData((d) => ({ ...d, users: fn(d.users) }));
+  const setPosts = (fn) => state.setData((d) => ({ ...d, posts: fn(d.posts) }));
+  const actions = usePostActions(
+    (id, change) =>
+      setPosts((list) =>
+        list.map((p) => (p.id === id ? { ...p, ...(typeof change === 'function' ? change(p) : change) } : p))
+      ),
+    (id) => setPosts((list) => list.filter((p) => p.id !== id))
+  );
 
   const onFollow = async (id) => {
     if (!user) return openAuth();
     try {
-      const d = await toggleFollow(id);
-      setFollowing((f) => ({ ...f, [id]: d.following }));
+      const { following } = await toggleFollow(id);
+      setUsers((list) => list.map((u) => (u.id === id ? { ...u, isFollowing: following } : u)));
     } catch (err) {
       toast(err.message);
     }
   };
 
-  const visible = users.filter((u) => u.id !== user?.id);
-
+  const data = state.data;
   return (
     <>
       <ViewHeading title="Discover people" subtitle="Find creators and new connections across Clarke." />
       <div className="card-panel" style={{ padding: 16 }}>
         <input
           id="discoverSearch"
-          placeholder="Search by name or username"
+          placeholder="Search by name, username, post or #hashtag"
           style={{ width: '100%', padding: 13, border: '1px solid var(--line)', borderRadius: 9, outline: 0 }}
-          onInput={(e) => search(e.target.value)}
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
         />
         <div id="discoverResults" style={{ marginTop: 14 }}>
-          {visible.length ? (
-            visible.map((u) => (
-              <div className="person-row" key={u.id}>
-                <div className="avatar avatar-purple">{initials(u.display_name)}</div>
-                <div className="person-info">
-                  <b>{u.display_name}</b>
-                  <small>
-                    @{u.username} · ID {u.id}
-                  </small>
-                </div>
-                <button className={`follow-btn${following[u.id] ? ' following' : ''}`} onClick={() => onFollow(u.id)}>
-                  {following[u.id] ? 'Following' : 'Follow'}
-                </button>
+          {state.loading && !data && <Loading text="Searching…" />}
+          {state.error && <ErrorState message={state.error} onRetry={state.reload} />}
+          {data?.users.length === 0 && <p style={{ color: 'var(--muted)', fontSize: 11 }}>No members found.</p>}
+          {data?.users.map((u) => (
+            <div className="person-row" key={u.id}>
+              <Avatar src={u.avatar} name={u.displayName} />
+              <div
+                className="person-info"
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate('member', { id: u.id })}
+              >
+                <b>{u.displayName}</b>
+                <small>
+                  @{u.username} · ID {u.id}
+                </small>
               </div>
-            ))
-          ) : (
-            <p style={{ color: 'var(--muted)', fontSize: 11 }}>No members found yet.</p>
-          )}
+              <button className={`follow-btn${u.isFollowing ? ' following' : ''}`} onClick={() => onFollow(u.id)}>
+                {u.isFollowing ? 'Following' : 'Follow'}
+              </button>
+            </div>
+          ))}
         </div>
       </div>
+      {data?.posts.length > 0 && (
+        <>
+          <div className="feed-heading">
+            <div>
+              <h2>Posts</h2>
+              <p>Matching “{q.trim()}”</p>
+            </div>
+          </div>
+          <div className="feed-list">
+            {data.posts.map((p) => (
+              <PostCard key={p.id} post={p} actions={actions} />
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }

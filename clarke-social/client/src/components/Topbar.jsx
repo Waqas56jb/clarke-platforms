@@ -1,12 +1,14 @@
 import { useAuth } from '../context/AuthContext';
 import { useNavigation } from '../context/NavigationContext';
+import { mediaUrl } from '../services/http';
 import { initials } from '../utils/format';
 import GlobalSearch from './GlobalSearch';
+import NotificationsMenu from './NotificationsMenu';
 import ViewButton from './ViewButton';
 
 export default function Topbar() {
   const { user } = useAuth();
-  const { openAuth } = useNavigation();
+  const { openAuth, showView } = useNavigation();
   return (
     <header className="topbar">
       <div className="mobile-brand">
@@ -14,14 +16,17 @@ export default function Topbar() {
       </div>
       <GlobalSearch />
       <div className="top-actions">
-        <button className="icon-btn" title="Notifications" id="notificationsBtn">
-          ♧
-        </button>
+        <NotificationsMenu />
         <ViewButton className="icon-btn" title="Messages" view="messages">
           ▤
         </ViewButton>
-        <button className="top-avatar" id="topAvatar">
-          {initials(user?.displayName || user?.username || 'C')}
+        <button
+          className="top-avatar"
+          id="topAvatar"
+          title={user ? 'My profile' : 'Sign in'}
+          onClick={() => (user ? showView('profile') : openAuth())}
+        >
+          {user?.avatar ? <img src={mediaUrl(user.avatar)} alt="" /> : initials(user?.displayName || 'C')}
         </button>
         <button
           className={`btn btn-primary top-signin${user ? ' hidden' : ''}`}
