@@ -1,22 +1,35 @@
-// Demo allocation ledger for the proposed 2% fee. Not a payment system: nothing is charged or transferred.
-const db = require('../db/connection');
-const HttpError = require('../utils/httpError');
+// Gold & Diamond fund: an allocation ledger in EUR. Entries are written only by the server when a
+// company-share sale completes (listingService.buy). Nothing is charged or paid out.
+const env = require('../config/env');
+const { one, many } = require('../db/pool');
+const { iso, dollars } = require('../utils/serializers');
 
-const FEE_RATE = 0.02;
-
-const totalEur = () => db.prepare('SELECT COALESCE(SUM(fee_cents),0) AS cents FROM fund_ledger').get().cents / 100;
-
-function recordFee(saleValueInput) {
-  const saleValue = Math.max(0, Number(saleValueInput) || 0);
-  if (!saleValue || saleValue > 1e12)
-    throw new HttpError(400, 'Enter a positive gross stock sale value to calculate the example fee.');
-  const fee = Math.round(saleValue * FEE_RATE * 100) / 100;
-  db.prepare('INSERT INTO fund_ledger(sale_value_cents,fee_cents,created_at) VALUES(?,?,?)').run(
-    Math.round(saleValue * 100),
-    Math.round(fee * 100),
-    new Date().toISOString()
+async function summary() {
+  const { total, entries } = await one(
+    'SELECT COALESCE(SUM(fee_eur_cents),0)::bigint total, COUNT(*)::int entries FROM fund_ledger'
   );
-  return { saleValue, fee, total: totalEur() };
+  const rows = await many(
+    `SELECT f.*, o.reference order_reference, a.name company, a.symbol
+     FROM fund_ledger f LEFT JOIN company_orders o ON o.id=f.order_id LEFT JOIN applications a ON a.id=o.application_id
+     ORDER BY f.created_at DESC, f.id DESC LIMIT 50`
+  );
+  return {
+    totalEur: dollars(total),
+    entries,
+    settings: { rate: env.fund.rate, basis: env.fund.basis },
+    ledger: rows.map((r) => ({
+      id: r.id,
+      orderReference: r.order_reference,
+      company: r.company,
+      symbol: r.symbol,
+      saleValueEur: dollars(r.sale_value_eur_cents),
+      basisEur: dollars(r.basis_eur_cents),
+      feeEur: dollars(r.fee_eur_cents),
+      basis: r.basis,
+      rate: Number(r.rate),
+      createdAt: iso(r.created_at),
+    })),
+  };
 }
 
-module.exports = { totalEur, recordFee };
+module.exports = { summary };

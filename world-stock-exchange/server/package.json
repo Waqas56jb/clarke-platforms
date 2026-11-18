@@ -2,11 +2,14 @@
   "name": "world-stock-exchange-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Demo API for the World Stock Exchange concept site. Stores demo data only; no trading or payments.",
+  "description": "World Stock Exchange practice platform API (Express, PostgreSQL). No real money is handled.",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
+    "seed-demo": "node scripts/seed-demo.js",
+    "remove-demo": "node scripts/remove-demo.js",
+    "make-reviewer": "node scripts/make-reviewer.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -15,12 +18,17 @@
     "node": ">=20"
   },
   "dependencies": {
+    "bcryptjs": "^2.4.3",
     "better-sqlite3": "^12.4.1",
+    "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
-    "helmet": "^8.0.0"
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.3",
+    "multer": "^2.5.0",
+    "pg": "^8.23.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
