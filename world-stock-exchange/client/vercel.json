@@ -1,4 +1,0 @@
-{
-  "$schema": "https://openapi.vercel.sh/vercel.json",
-  "rewrites": [{ "source": "/api/:path*", "destination": "https://wse-api-production.up.railway.app/api/:path*" }]
-}

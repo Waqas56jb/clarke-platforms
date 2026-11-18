@@ -3,7 +3,9 @@
 const { one, pool } = require('../src/db/pool');
 
 async function main() {
-  const username = String(process.argv[2] || '').trim().toLowerCase();
+  const username = String(process.argv[2] || '')
+    .trim()
+    .toLowerCase();
   const remove = process.argv.includes('--remove');
   if (!username || username.startsWith('--')) throw new Error('Usage: npm run make-reviewer -- <username> [--remove]');
   const user = await one('UPDATE users SET is_reviewer=$2 WHERE username=$1 RETURNING username, is_reviewer', [

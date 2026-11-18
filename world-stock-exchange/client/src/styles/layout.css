@@ -1,0 +1,410 @@
+/* App shell. Mobile (<768): navy header + bottom tab bar. Tablet (768–1023): 76px icon rail.
+   Desktop (>=1024): 260px navy sidebar and a content column up to 1200px. */
+.app-shell {
+  min-height: 100vh;
+}
+
+.app-main {
+  min-width: 0;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.content {
+  width: 100%;
+  max-width: calc(var(--content-max) + var(--page-gutter) * 2);
+  margin: 0 auto;
+  padding: var(--space-4) var(--page-gutter) calc(var(--bottom-nav-height) + var(--safe-bottom) + var(--space-6));
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---------- Brand ---------- */
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  min-width: 44px;
+  justify-content: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--color-on-chrome);
+  font: 800 14px/1.2 var(--font-sans);
+  letter-spacing: 0.08em;
+  text-align: left;
+}
+
+.brand-mark {
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--color-chrome-accent);
+  border-radius: 10px;
+  color: var(--color-chrome-accent);
+  display: inline-grid;
+  place-items: center;
+  font: 900 18px/1 var(--font-sans);
+  flex: 0 0 auto;
+  letter-spacing: 0;
+}
+
+/* ---------- Top header ---------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  height: calc(var(--header-height) + var(--safe-top));
+  padding: var(--safe-top) var(--page-gutter) 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  background: var(--color-chrome);
+  color: var(--color-on-chrome);
+  border-bottom: 1px solid var(--color-chrome-border);
+}
+
+.topbar .brand-mark {
+  width: 34px;
+  height: 34px;
+  font-size: 16px;
+}
+
+.topbar-title {
+  display: none;
+  font: 600 15px/20px var(--font-sans);
+  color: var(--color-on-chrome);
+  min-width: 0;
+}
+
+.topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.topbar .btn-secondary {
+  background: transparent;
+  color: var(--color-on-chrome);
+  border-color: var(--color-on-chrome-muted);
+}
+
+.topbar .btn-secondary:hover:not(:disabled) {
+  background: var(--color-chrome-hover);
+}
+
+.topbar .icon-btn {
+  color: var(--color-on-chrome);
+}
+
+.topbar .icon-btn:hover:not(:disabled) {
+  background: var(--color-chrome-hover);
+  color: var(--color-on-chrome);
+}
+
+.topbar :focus-visible,
+.sidebar :focus-visible,
+.bottom-nav :focus-visible {
+  outline-color: var(--color-chrome-accent);
+}
+
+.topbar-balance {
+  display: none;
+  font: 600 13px/18px var(--font-sans);
+  color: var(--color-on-chrome-muted);
+  white-space: nowrap;
+}
+
+.topbar-balance strong {
+  color: var(--color-on-chrome);
+  font-variant-numeric: tabular-nums;
+}
+
+.avatar-button {
+  border: 0;
+  padding: 2px;
+  border-radius: 50%;
+  background: none;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+}
+
+.avatar-button:hover .avatar {
+  box-shadow: 0 0 0 2px var(--color-chrome-accent);
+}
+
+/* ---------- Sidebar (desktop) / rail (tablet) ---------- */
+.sidebar {
+  display: none;
+}
+
+.sidebar-nav {
+  display: grid;
+  gap: 2px;
+}
+
+.side-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 44px;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-button);
+  background: none;
+  color: var(--color-on-chrome-muted);
+  font: 600 14px/20px var(--font-sans);
+  text-align: left;
+  position: relative;
+  transition:
+    background-color var(--dur-hover) var(--ease-standard),
+    color var(--dur-hover) var(--ease-standard);
+}
+
+.side-link:hover {
+  background: var(--color-chrome-hover);
+  color: var(--color-on-chrome);
+}
+
+.side-link.active {
+  background: var(--color-chrome-active);
+  color: var(--color-chrome-accent);
+}
+
+.side-link .lucide {
+  width: 22px;
+  height: 22px;
+}
+
+.side-link-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.side-cta {
+  margin: var(--space-4) 0;
+}
+
+.sidebar-foot {
+  margin-top: auto;
+  padding: var(--space-4) var(--space-3) 0;
+  font: var(--text-caption);
+  color: var(--color-on-chrome-muted);
+}
+
+.side-more {
+  display: none;
+}
+
+/* ---------- Bottom tab bar (mobile) ---------- */
+.bottom-nav {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--z-header);
+  height: calc(var(--bottom-nav-height) + var(--safe-bottom));
+  padding: 0 var(--space-1) var(--safe-bottom);
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  align-items: center;
+  background: var(--color-chrome);
+  border-top: 1px solid var(--color-chrome-border);
+}
+
+.tab-item {
+  min-height: 48px;
+  min-width: 0;
+  border: 0;
+  background: none;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 2px;
+  color: var(--color-on-chrome-muted);
+  font: 500 11px/14px var(--font-sans);
+  border-radius: var(--radius-button);
+}
+
+.tab-item span {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab-item .lucide {
+  width: 22px;
+  height: 22px;
+}
+
+.tab-item.active {
+  color: var(--color-chrome-accent);
+}
+
+/* ---------- Tablet: rail ---------- */
+@media (min-width: 768px) {
+  .bottom-nav {
+    display: none;
+  }
+
+  .app-shell {
+    padding-left: var(--rail-width);
+  }
+
+  .content {
+    padding-bottom: var(--space-10);
+    padding-top: var(--space-6);
+  }
+
+  .topbar .brand {
+    display: none;
+  }
+
+  .topbar-title {
+    display: block;
+  }
+
+  .topbar-balance {
+    display: block;
+  }
+
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: var(--z-sidebar);
+    width: var(--rail-width);
+    padding: var(--space-4) var(--space-3);
+    background: var(--color-chrome);
+    border-right: 1px solid var(--color-chrome-border);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+
+  .sidebar .brand {
+    justify-content: center;
+    margin-bottom: var(--space-5);
+  }
+
+  .sidebar .brand-text,
+  .sidebar .side-link-label,
+  .sidebar .sidebar-foot,
+  .sidebar .side-cta {
+    display: none;
+  }
+
+  .sidebar .side-link {
+    justify-content: center;
+    padding: 0;
+    min-height: 52px;
+  }
+
+  .sidebar .side-link .lucide {
+    width: 24px;
+    height: 24px;
+  }
+
+  .sidebar .side-link:not(.rail) {
+    display: none;
+  }
+
+  .sidebar .side-more {
+    display: flex;
+    order: 99;
+  }
+}
+
+/* ---------- Desktop: full sidebar ---------- */
+@media (min-width: 1024px) {
+  .app-shell {
+    padding-left: var(--sidebar-width);
+  }
+
+  .sidebar {
+    width: var(--sidebar-width);
+    padding: var(--space-6) var(--space-4) var(--space-4);
+  }
+
+  .sidebar .brand {
+    justify-content: flex-start;
+    padding: 0 var(--space-2);
+    margin-bottom: var(--space-2);
+  }
+
+  .sidebar .brand-text,
+  .sidebar .side-link-label {
+    display: inline;
+  }
+
+  .sidebar .sidebar-foot,
+  .sidebar .side-cta {
+    display: block;
+  }
+
+  .sidebar .side-link {
+    justify-content: flex-start;
+    padding: 0 var(--space-3);
+    min-height: 44px;
+  }
+
+  .sidebar .side-link .lucide {
+    width: 22px;
+    height: 22px;
+  }
+
+  .sidebar .side-link:not(.rail) {
+    display: flex;
+  }
+
+  .sidebar .side-more {
+    display: none;
+  }
+}
+
+/* Drawer variant of the dialog (tablet "More" menu) */
+.dialog-backdrop.drawer {
+  place-items: stretch start;
+  padding: 0;
+}
+
+.dialog-backdrop.drawer .dialog {
+  width: min(320px, 86vw);
+  max-height: none;
+  height: 100%;
+  border-radius: 0 var(--radius-card) var(--radius-card) 0;
+  animation: drawer-in var(--dur-sheet) var(--ease-enter);
+}
+
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+}
+
+/* Email notice under the header */
+.app-notice {
+  margin: var(--space-3) var(--page-gutter) 0;
+}
+
+.app-notice .icon-btn {
+  margin: -10px -8px -10px 0;
+}
+
+@media (min-width: 768px) {
+  .app-notice {
+    max-width: var(--content-max);
+    margin: var(--space-4) auto 0;
+    width: calc(100% - var(--page-gutter) * 2);
+  }
+}
