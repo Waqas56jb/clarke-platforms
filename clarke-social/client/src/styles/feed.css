@@ -785,7 +785,12 @@
 /* ---------- Story viewer ---------- */
 .story-viewer {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* The visible viewport, so mobile browser toolbars never cover the reply bar. */
+  height: 100vh;
+  height: 100dvh;
   z-index: var(--z-modal);
   display: flex;
   align-items: center;
@@ -874,10 +879,11 @@
 }
 
 .story-stage {
-  flex: 1;
+  position: relative;
+  flex: 1 1 auto;
   min-height: 0;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-card-sm);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -886,16 +892,46 @@
 
 .story-stage img,
 .story-stage video {
-  max-width: 100%;
-  max-height: 100%;
+  /* Fill the stage box and letterbox inside it, so media never runs under the caption or reply bar. */
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
   pointer-events: none;
+}
+
+.story-stage .media-error {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: var(--space-4);
+}
+
+.story-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+}
+
+.story-progress,
+.story-top,
+.story-caption,
+.story-reply {
+  flex: 0 0 auto;
 }
 
 .story-caption {
   text-align: center;
   font: var(--text-body-lg);
   overflow-wrap: anywhere;
+  max-height: 4.5em;
+  overflow-y: auto;
 }
 
 .story-reply {

@@ -42,3 +42,21 @@ export const FEED_TITLES = {
   music: 'Clarke Music',
   movies: 'Clarke Movies',
 };
+
+// Every screen that can appear in the address bar (?view=...).
+export const KNOWN_VIEWS = [
+  ...FEED_VIEWS,
+  ...PREVIEW_VIEWS,
+  'discover',
+  'dating',
+  'datingPremium',
+  'messages',
+  'calls',
+  'profile',
+  'settings',
+  'account',
+  'premium',
+  'member',
+  'connections',
+  'post',
+];

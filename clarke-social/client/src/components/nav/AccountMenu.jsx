@@ -34,7 +34,7 @@ function SignOutButton({ onDone, className }) {
 }
 
 export default function AccountMenu() {
-  const { user } = useAuth();
+  const { user, ready } = useAuth();
   const { openAuth, showView } = useNavigation();
   const isMobile = useMediaQuery(MOBILE_QUERY);
   const [open, setOpen] = useState(false);
@@ -54,6 +54,8 @@ export default function AccountMenu() {
     };
   }, [open, isMobile]);
 
+  // Until the session check finishes, show a neutral placeholder rather than flashing "Sign in".
+  if (!ready) return <span className="avatar avatar-sm skeleton" aria-hidden="true" />;
   if (!user)
     return (
       <button type="button" className="btn btn-primary btn-sm" id="openAuth" onClick={() => openAuth()}>

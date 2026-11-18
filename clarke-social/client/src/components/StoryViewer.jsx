@@ -280,6 +280,9 @@ export default function StoryViewer({ groups, startIndex, onClose, onDeleted, on
           onPointerCancel={onPointerCancel}
           onContextMenu={(e) => e.preventDefault()}
         >
+          {!failed && !isVideo && loadedId !== story.id && (
+            <span className="spinner story-loading" role="status" aria-label="Loading story" />
+          )}
           {failed ? (
             <p className="media-error" role="alert">
               <CircleAlert size={20} aria-hidden="true" />

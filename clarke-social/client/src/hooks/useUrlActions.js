@@ -18,7 +18,13 @@ export function useUrlActions() {
     if (!ready || handled.current) return;
     handled.current = true;
     const params = new URLSearchParams(window.location.search);
-    const clear = () => window.history.replaceState({}, '', window.location.pathname);
+    // Remove one-off parameters (tokens, payment outcome) but keep the ?view= route.
+    const clear = () => {
+      const kept = new URLSearchParams(window.location.search);
+      ['verify', 'reset', 'payment', 'post'].forEach((key) => kept.delete(key));
+      const rest = kept.toString();
+      window.history.replaceState({}, '', `${window.location.pathname}${rest ? `?${rest}` : ''}`);
+    };
 
     if (params.get('verify')) {
       verifyEmail(params.get('verify'))
@@ -34,9 +40,9 @@ export function useUrlActions() {
     if (payment) {
       refresh();
       // The plans page shows the result dialog for this outcome.
-      navigate('premium', { payment: PAYMENT_OUTCOMES.includes(payment) ? payment : 'failed' });
+      navigate('premium', { payment: PAYMENT_OUTCOMES.includes(payment) ? payment : 'failed' }, { replace: true });
     }
-    if (params.get('post')) navigate('post', { id: Number(params.get('post')) });
-    if ([...params.keys()].length) clear();
+    if (params.get('verify') || params.get('reset')) clear();
+    if (params.get('post')) navigate('post', { id: Number(params.get('post')) }, { replace: true });
   }, [ready, setUser, refresh, openAuth, navigate, toast]);
 }

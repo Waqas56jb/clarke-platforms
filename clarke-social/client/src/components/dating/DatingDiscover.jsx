@@ -42,8 +42,12 @@ export default function DatingDiscover({ onShowEditor }) {
           setState({ data });
           setIndex(0);
         })
-        .catch((e) => setState({ error: e.message })),
-    []
+        .catch((e) => {
+          // 409 = this member has no dating profile yet: take them to the profile form, not an error.
+          if (e.status === 409) onShowEditor();
+          else setState({ error: e.message });
+        }),
+    [onShowEditor]
   );
 
   const reload = () => {
@@ -56,15 +60,7 @@ export default function DatingDiscover({ onShowEditor }) {
   }, [fetchProfiles]);
 
   if (state.loading) return <Loading variant="dating" text="Finding people" />;
-  if (state.error)
-    return (
-      <div className="stack">
-        <ErrorState title="Couldn't load profiles" message={state.error} onRetry={reload} />
-        <button type="button" className="btn btn-secondary" id="datingCreateProfile" onClick={onShowEditor}>
-          Edit dating profile
-        </button>
-      </div>
-    );
+  if (state.error) return <ErrorState title="Couldn't load profiles" message={state.error} onRetry={reload} />;
 
   const { profiles, tier, dailyLimit } = state.data;
   // Profiles already liked are skipped.

@@ -3,6 +3,7 @@ import { MessagesSquare } from 'lucide-react';
 import ChatThread from '../components/messages/ChatThread';
 import ConversationList from '../components/messages/ConversationList';
 import { EmptyState, ErrorState, Loading } from '../components/StateView';
+import { useNavigation } from '../context/NavigationContext';
 import { useSocketEvent } from '../context/SocketContext';
 import { useAsync } from '../hooks/useAsync';
 import { listContacts, listConversations } from '../services/messagesService';
@@ -45,6 +46,12 @@ export default function MessagesPage({ params }) {
   const [activeId, setActiveId] = useState(params.userId || null);
   const [requestedId, setRequestedId] = useState(params.userId);
   const lists = useAsync(loadLists, []);
+  const { syncUrl } = useNavigation();
+  // The open conversation is kept in the address so a refresh reopens it.
+  const openThread = (id) => {
+    setActiveId(id);
+    syncUrl('messages', id ? { userId: id } : {});
+  };
 
   // Opening Messages for a specific member (from a profile or match) while already on this screen.
   if (params.userId !== requestedId) {
@@ -63,9 +70,9 @@ export default function MessagesPage({ params }) {
         </div>
       </header>
       <div className={`card messages-layout${activeId ? ' thread-open' : ''}`}>
-        <ListPane lists={lists} activeId={activeId} onOpen={setActiveId} />
+        <ListPane lists={lists} activeId={activeId} onOpen={openThread} />
         {activeId ? (
-          <ChatThread key={activeId} userId={activeId} onBack={() => setActiveId(null)} onChanged={lists.reload} />
+          <ChatThread key={activeId} userId={activeId} onBack={() => openThread(null)} onChanged={lists.reload} />
         ) : (
           <div className="chat-thread chat-thread-idle">
             <EmptyState icon={MessagesSquare} title="Choose a conversation" plain>

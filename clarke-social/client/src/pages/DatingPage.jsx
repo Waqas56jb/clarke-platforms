@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Crown } from 'lucide-react';
 import { useNavigation } from '../context/NavigationContext';
 import { ErrorState, Loading } from '../components/StateView';
@@ -16,14 +16,26 @@ const TABS = [
 const initialTab = (requested) => (TABS.some((t) => t.name === requested) ? requested : 'discover');
 
 export default function DatingPage({ params }) {
-  const { showView } = useNavigation();
+  const { showView, syncUrl } = useNavigation();
   // "key" remounts a tab so pressing it again reloads it.
   const [tab, setTab] = useState({ name: 'loading', key: 0 });
   const [hasProfile, setHasProfile] = useState(true);
   const [error, setError] = useState('');
   const [attempt, setAttempt] = useState(0);
 
-  const open = (name) => setTab((t) => ({ name, key: t.key + 1 }));
+  // Without a dating profile, every tab leads to the profile form first.
+  const open = useCallback(
+    (name) => {
+      const next = hasProfile ? name : 'profile';
+      setTab((t) => ({ name: next, key: t.key + 1 }));
+      syncUrl('dating', next === 'discover' ? {} : { tab: next });
+    },
+    [hasProfile, syncUrl]
+  );
+  const showEditor = useCallback(() => {
+    setHasProfile(false);
+    setTab((t) => ({ name: 'profile', key: t.key + 1 }));
+  }, []);
 
   useEffect(() => {
     getDatingProfile()
@@ -37,7 +49,8 @@ export default function DatingPage({ params }) {
 
   const onSaved = () => {
     setHasProfile(true);
-    open('discover');
+    setTab((t) => ({ name: 'discover', key: t.key + 1 }));
+    syncUrl('dating');
   };
 
   let content;
@@ -48,7 +61,7 @@ export default function DatingPage({ params }) {
   else if (tab.name === 'loading') content = <Loading variant="dating" text="Loading Clarke Dating" />;
   else if (tab.name === 'profile') content = <DatingEditor key={tab.key} isNew={!hasProfile} onSaved={onSaved} />;
   else if (tab.name === 'matches') content = <DatingMatches key={tab.key} />;
-  else content = <DatingDiscover key={tab.key} onShowEditor={() => open('profile')} />;
+  else content = <DatingDiscover key={tab.key} onShowEditor={showEditor} />;
 
   return (
     <>
