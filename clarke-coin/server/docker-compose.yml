@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: clarke_coin
+      POSTGRES_USER: clarke
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    ports:
+      # Localhost only, so the API running on the host can reach it. Never publish this publicly.
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U clarke -d clarke_coin']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+  # Optional containerised API: `docker compose --profile api up --build`.
+  api:
+    profiles: ['api']
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://clarke:${POSTGRES_PASSWORD}@db:5432/clarke_coin
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '127.0.0.1:3002:3002'
+    restart: unless-stopped
+volumes:
+  postgres_data:
