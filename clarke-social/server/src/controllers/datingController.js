@@ -22,6 +22,11 @@ async function like(req, res) {
   res.json(await datingService.like(req.user.id, targetId(req)));
 }
 
+async function pass(req, res) {
+  await datingService.pass(req.user.id, targetId(req));
+  res.json({ passed: true });
+}
+
 async function matches(req, res) {
   res.json({ matches: await datingService.matches(req.user.id) });
 }
@@ -36,4 +41,4 @@ async function report(req, res) {
   res.status(201).json({ ok: true });
 }
 
-module.exports = { getMe, saveMe, discover, like, matches, block, report };
+module.exports = { getMe, saveMe, discover, like, pass, matches, block, report };

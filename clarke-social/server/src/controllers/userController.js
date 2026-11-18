@@ -25,6 +25,11 @@ async function profile(req, res) {
   res.json({ user: await userService.profile(viewer(req), Number(req.params.id)) });
 }
 
+async function connections(req, res) {
+  const kind = req.path.endsWith('/followers') ? 'followers' : 'following';
+  res.json({ users: await userService.connections(viewer(req), Number(req.params.id), kind) });
+}
+
 async function search(req, res) {
   res.json(await searchService.search(viewer(req), req.query.q));
 }
@@ -33,4 +38,4 @@ async function trending(_req, res) {
   res.json({ tags: await searchService.trending() });
 }
 
-module.exports = { follow, blockUser, searchUsers, suggestions, profile, search, trending };
+module.exports = { follow, blockUser, searchUsers, suggestions, connections, profile, search, trending };

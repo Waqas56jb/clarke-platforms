@@ -72,6 +72,7 @@ async function discover(userId) {
      FROM dating_profiles d JOIN users u ON u.id=d.user_id
      WHERE d.user_id <> $1
        AND NOT EXISTS(SELECT 1 FROM dating_blocks b WHERE (b.blocker_id=$1 AND b.blocked_id=d.user_id) OR (b.blocker_id=d.user_id AND b.blocked_id=$1))
+       AND NOT EXISTS(SELECT 1 FROM dating_passes p WHERE p.from_user=$1 AND p.to_user=d.user_id)
        AND (d.interested_in='Everyone' OR d.interested_in=$2)
        AND ($3='Everyone' OR $3=d.gender)
      ORDER BY d.updated_at DESC LIMIT $4`,
@@ -106,6 +107,13 @@ async function like(userId, target) {
   return { liked: true, matched };
 }
 
+// Passing hides the profile from this member's discovery. It does not notify the other member or undo a like.
+async function pass(userId, target) {
+  if (isInvalidTarget(userId, target)) throw new HttpError(400, 'Invalid member.');
+  if (!(await getProfile(target))) throw new HttpError(404, 'Dating profile not found.');
+  await query('INSERT INTO dating_passes(from_user,to_user) VALUES($1,$2) ON CONFLICT DO NOTHING', [userId, target]);
+}
+
 function matches(userId) {
   return many(
     `SELECT u.id, u.username, u.display_name, u.avatar, d.photo_url, d.location
@@ -130,4 +138,4 @@ async function report(userId, target, reasonInput) {
   await query('INSERT INTO dating_reports(reporter_id,reported_id,reason) VALUES($1,$2,$3)', [userId, target, reason]);
 }
 
-module.exports = { datingTier, getProfile, saveProfile, discover, like, matches, block, report };
+module.exports = { datingTier, getProfile, saveProfile, discover, like, pass, matches, block, report };

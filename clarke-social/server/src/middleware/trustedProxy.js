@@ -1,10 +1,12 @@
 // Works out the real client IP and blocks direct calls to the API host.
 //
 // The website (Vercel) forwards /api requests here through Routing Middleware that adds a secret
-// header, X-Clarke-Proxy-Secret. Vercel overwrites X-Vercel-Forwarded-For with the visitor's real IP, so
-// that header is trusted only when the secret matches. Anyone calling the Railway address directly
-// cannot supply the secret: their IP comes from Railway's own edge proxy (TRUST_PROXY=1), which they
-// cannot forge, and they can only reach the few routes that must be called directly.
+// header, X-Clarke-Proxy-Secret, and X-Clarke-Client-Ip: the visitor IP taken from Vercel's own
+// x-real-ip. That header is trusted only when the secret matches (visitor-sent forwarding headers
+// reach us unchanged through the rewrite, so they are never trusted). Anyone calling the Railway
+// address directly cannot supply the secret and can only reach the few routes that must be called
+// directly; their IP is the client address Railway's edge records in X-Forwarded-For, which Railway
+// rewrites itself (TRUST_PROXY=2: client, then Railway's edge proxy).
 const env = require('../config/env');
 const { safeEqual } = require('../utils/secureRandom');
 
@@ -19,7 +21,7 @@ const firstIp = (value) => (value || '').split(',')[0].trim();
 
 function trustedProxy(req, res, next) {
   const viaProxy = Boolean(env.proxySecret) && safeEqual(req.get('x-clarke-proxy-secret') || '', env.proxySecret);
-  req.clientIp = (viaProxy && firstIp(req.get('x-vercel-forwarded-for'))) || req.ip;
+  req.clientIp = (viaProxy && firstIp(req.get('x-clarke-client-ip'))) || req.ip;
   if (env.proxySecret && !viaProxy && req.method !== 'OPTIONS' && !DIRECT_ROUTES.some((allowed) => allowed(req)))
     return res.status(403).json({ error: 'This API is only available through the Clarke website.' });
   next();

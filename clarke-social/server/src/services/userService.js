@@ -83,6 +83,17 @@ async function suggestions(viewerId) {
   return rows.map(toListedUser);
 }
 
+// Members who follow `userId` ("followers") or whom `userId` follows ("following"), newest first.
+async function connections(viewerId, userId, kind) {
+  const [match, other] = kind === 'followers' ? ['following_id', 'follower_id'] : ['follower_id', 'following_id'];
+  const rows = await many(
+    `SELECT u.*, ${FOLLOW_FLAG} FROM follows c JOIN users u ON u.id=c.${other}
+     WHERE c.${match}=$2 ORDER BY c.created_at DESC LIMIT 200`,
+    [viewerId || 0, userId]
+  );
+  return rows.map(toListedUser);
+}
+
 async function profile(viewerId, userId) {
   const row = await one(
     `SELECT u.*, ${FOLLOW_FLAG},
@@ -102,4 +113,13 @@ async function profile(viewerId, userId) {
   };
 }
 
-module.exports = { updateProfile, setAvatar, deleteAccount, toggleFollow, search, suggestions, profile };
+module.exports = {
+  updateProfile,
+  setAvatar,
+  deleteAccount,
+  toggleFollow,
+  search,
+  suggestions,
+  connections,
+  profile,
+};
