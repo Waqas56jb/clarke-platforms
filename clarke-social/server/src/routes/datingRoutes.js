@@ -1,16 +1,18 @@
 const { Router } = require('express');
-const requireAuth = require('../middleware/auth');
+const asyncHandler = require('../utils/asyncHandler');
+const { requireAuth } = require('../middleware/auth');
 const dating = require('../controllers/datingController');
 
 const router = Router();
+const a = asyncHandler;
 
 router.use(requireAuth);
-router.get('/me', dating.getMe);
-router.put('/me', dating.saveMe);
-router.get('/discover', dating.discover);
-router.post('/like/:id', dating.like);
-router.get('/matches', dating.matches);
-router.post('/block/:id', dating.block);
-router.post('/report/:id', dating.report);
+router.get('/me', a(dating.getMe));
+router.put('/me', a(dating.saveMe));
+router.get('/discover', a(dating.discover));
+router.post('/like/:id', a(dating.like));
+router.get('/matches', a(dating.matches));
+router.post('/block/:id', a(dating.block));
+router.post('/report/:id', a(dating.report));
 
 module.exports = router;

@@ -1,23 +1,17 @@
+// The browser connects straight to the API host (WebSockets cannot pass through the website proxy), so it
+// authenticates with a short-lived token from GET /api/auth/socket-token instead of the session cookie.
+const { one } = require('../db/pool');
 const { verifyToken } = require('../utils/tokens');
-const { COOKIE_NAME } = require('../utils/sessionCookie');
 
-function tokenFromCookie(cookieHeader) {
-  const entry = (cookieHeader || '')
-    .split(';')
-    .map((s) => s.trim())
-    .find((s) => s.startsWith(`${COOKIE_NAME}=`));
-  return entry ? decodeURIComponent(entry.split('=').slice(1).join('=')) : '';
-}
-
-// Session cookie (browser client) or handshake auth token (starter-style clients).
-function socketAuth(socket, next) {
+async function socketAuth(socket, next) {
   try {
-    const token = tokenFromCookie(socket.handshake.headers.cookie) || socket.handshake.auth?.token;
-    if (!token) return next(new Error('Sign in required'));
-    socket.user = verifyToken(token);
+    const payload = verifyToken(String(socket.handshake.auth?.token || ''), 'socket');
+    const user = await one('SELECT id, username, display_name FROM users WHERE id=$1', [payload.sub]);
+    if (!user) return next(new Error('Sign in required'));
+    socket.user = user;
     next();
   } catch {
-    next(new Error('Invalid session'));
+    next(new Error('Sign in required'));
   }
 }
 

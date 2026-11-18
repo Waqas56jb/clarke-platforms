@@ -1,15 +1,25 @@
-const { findUserById } = require('../services/authService');
 const userService = require('../services/userService');
-const { safeUser } = require('../utils/serializers');
+const { activePlans } = require('../services/membershipService');
+const { unreadCount } = require('../services/messageService');
+const { clearSessionCookie } = require('../utils/sessionCookie');
+const { toAccount } = require('../utils/serializers');
 
-function getMe(req, res) {
-  const user = findUserById(req.user.sub);
-  if (!user) return res.status(401).json({ error: 'Account not found.' });
-  res.json({ user: safeUser(user) });
+async function getMe(req, res) {
+  res.json({
+    user: toAccount(req.user),
+    plans: await activePlans(req.user.id),
+    unreadMessages: await unreadCount(req.user.id),
+  });
 }
 
-function updateMe(req, res) {
-  res.json({ user: safeUser(userService.updateProfile(req.user.sub, req.body)) });
+async function updateMe(req, res) {
+  res.json({ user: toAccount(await userService.updateProfile(req.user.id, req.body || {})) });
 }
 
-module.exports = { getMe, updateMe };
+async function deleteMe(req, res) {
+  await userService.deleteAccount(req.user, req.body?.password);
+  clearSessionCookie(res);
+  res.json({ ok: true, message: 'Your account and everything you posted have been deleted.' });
+}
+
+module.exports = { getMe, updateMe, deleteMe };

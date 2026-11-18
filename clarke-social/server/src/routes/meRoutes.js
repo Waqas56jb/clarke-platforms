@@ -1,10 +1,13 @@
 const { Router } = require('express');
-const requireAuth = require('../middleware/auth');
+const asyncHandler = require('../utils/asyncHandler');
+const { requireAuth } = require('../middleware/auth');
 const me = require('../controllers/meController');
 
 const router = Router();
 
-router.get('/', requireAuth, me.getMe);
-router.patch('/', requireAuth, me.updateMe);
+router.use(requireAuth);
+router.get('/', asyncHandler(me.getMe));
+router.patch('/', asyncHandler(me.updateMe));
+router.delete('/', asyncHandler(me.deleteMe));
 
 module.exports = router;

@@ -2,34 +2,37 @@ const datingService = require('../services/datingService');
 
 const targetId = (req) => Number(req.params.id);
 
-function getMe(req, res) {
-  res.json({ profile: datingService.getProfile(req.user.sub), subscription: datingService.datingTier(req.user.sub) });
+async function getMe(req, res) {
+  res.json({
+    profile: await datingService.getProfile(req.user.id),
+    subscription: await datingService.datingTier(req.user.id),
+  });
 }
 
-function saveMe(req, res) {
-  datingService.saveProfile(req.user.sub, req.body || {});
+async function saveMe(req, res) {
+  await datingService.saveProfile(req.user.id, req.body || {});
   res.json({ ok: true });
 }
 
-function discover(req, res) {
-  res.json(datingService.discover(req.user.sub));
+async function discover(req, res) {
+  res.json(await datingService.discover(req.user.id));
 }
 
-function like(req, res) {
-  res.json(datingService.like(req.user.sub, targetId(req)));
+async function like(req, res) {
+  res.json(await datingService.like(req.user.id, targetId(req)));
 }
 
-function matches(req, res) {
-  res.json({ matches: datingService.matches(req.user.sub) });
+async function matches(req, res) {
+  res.json({ matches: await datingService.matches(req.user.id) });
 }
 
-function block(req, res) {
-  datingService.block(req.user.sub, targetId(req));
+async function block(req, res) {
+  await datingService.block(req.user.id, targetId(req));
   res.json({ ok: true });
 }
 
-function report(req, res) {
-  datingService.report(req.user.sub, targetId(req), req.body?.reason);
+async function report(req, res) {
+  await datingService.report(req.user.id, targetId(req), req.body?.reason);
   res.status(201).json({ ok: true });
 }
 

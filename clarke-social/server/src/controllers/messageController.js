@@ -1,14 +1,30 @@
 const messageService = require('../services/messageService');
 
-function send(req, res) {
-  const { ciphertext, nonce } = req.body || {};
-  const { id, recipientId } = messageService.storeEnvelope(req.user.sub, req.body || {});
-  req.app.get('io').to(`user:${recipientId}`).emit('message:new', { id, senderId: req.user.sub, ciphertext, nonce });
-  res.status(201).json({ id });
+const other = (req) => Number(req.params.userId);
+
+async function conversations(req, res) {
+  res.json({ conversations: await messageService.conversations(req.user.id) });
 }
 
-function conversation(req, res) {
-  res.json(messageService.conversation(req.user.sub, Number(req.params.userId)));
+async function contacts(req, res) {
+  res.json({ contacts: await messageService.contacts(req.user.id) });
 }
 
-module.exports = { send, conversation };
+async function unread(req, res) {
+  res.json({ unread: await messageService.unreadCount(req.user.id) });
+}
+
+async function thread(req, res) {
+  res.json(await messageService.thread(req.user.id, other(req)));
+}
+
+async function send(req, res) {
+  res.status(201).json({ message: await messageService.send(req.user.id, other(req), req.body?.body) });
+}
+
+async function markRead(req, res) {
+  await messageService.markRead(req.user.id, other(req));
+  res.json({ ok: true });
+}
+
+module.exports = { conversations, contacts, unread, thread, send, markRead };

@@ -1,5 +1,4 @@
 const env = require('../config/env');
-const stripe = require('../services/stripeClient');
 const paymentService = require('../services/paymentService');
 
 function config(_req, res) {
@@ -7,25 +6,21 @@ function config(_req, res) {
 }
 
 async function checkout(req, res) {
-  const origin = env.appOrigin || `${req.protocol}://${req.get('host')}`;
-  res.json({ url: await paymentService.createCheckout(req.user.sub, req.body.plan, origin) });
+  res.json({ url: await paymentService.startCheckout(req.user, req.body || {}) });
 }
 
-function history(req, res) {
-  res.json({ payments: paymentService.listHistory(req.user.sub) });
+async function history(req, res) {
+  res.json({ payments: await paymentService.history(req.user.id) });
 }
 
-// Stripe signs the untouched request bytes, so this route receives a raw Buffer body.
-function webhook(req, res) {
-  if (!stripe || !env.stripeWebhookSecret) return res.sendStatus(503);
-  let event;
-  try {
-    event = stripe.webhooks.constructEvent(req.body, req.headers['stripe-signature'], env.stripeWebhookSecret);
-  } catch (err) {
-    return res.status(400).send(`Webhook signature error: ${err.message}`);
-  }
-  paymentService.applyWebhookEvent(event);
-  res.json({ received: true });
+async function memberships(req, res) {
+  res.json({ plans: await paymentService.memberships(req.user.id) });
 }
 
-module.exports = { config, checkout, history, webhook };
+// WiPay redirects the customer's browser here (GET) after checkout.
+async function wipayReturn(req, res) {
+  const outcome = await paymentService.handleReturn(req.query);
+  res.redirect(303, `${env.appOrigin}/?payment=${outcome}`);
+}
+
+module.exports = { config, checkout, history, memberships, wipayReturn };
