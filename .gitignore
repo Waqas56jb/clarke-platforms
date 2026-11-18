@@ -8,6 +8,7 @@ node_modules/
 
 # Runtime data
 uploads/
+private-uploads/
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
